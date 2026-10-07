@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Crowd Testing</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #1e293b; color: white; padding: 2rem; }
+        .controls { margin-bottom: 1rem; }
+        button { padding: 0.5rem 1rem; cursor: pointer; background: #3b82f6; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        button.stop { background: #ef4444; }
+        pre { background: #0f172a; padding: 1rem; border-radius: 8px; height: 400px; overflow-y: scroll; border: 1px solid #334155; }
+    </style>
+</head>
+<body>
+    <h1>Real-time Crowd Analytics WebSocket Test</h1>
+    <div class="controls">
+        <button onclick="connect()">Connect to WebSocket</button>
+        <button class="stop" onclick="disconnect()">Disconnect</button>
+    </div>
+    
+    <pre id="output">Press 'Connect' to stream JSON metrics from backend...\n</pre>
+
+    <script>
+        let ws;
+        function connect() {
+            const out = document.getElementById("output");
+            out.innerHTML = "Connecting...\n";
+            ws = new WebSocket("ws://localhost:8000/ws/analyze?capacity=20");
+            
+            ws.onopen = function() {
+                out.innerHTML = "Connected successfully! Waiting for frames...\n";
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if(data.message) {
+                    out.innerHTML += `\n[SERVER]: ${data.message}\n`;
+                } else {
+                    out.innerHTML = "--- Live Frame Metrics ---\n" + JSON.stringify(data, null, 2);
+                }
+            };
+            
+            ws.onclose = function(event) {
+                out.innerHTML += "\nConnection closed cleanly.\n";
+            };
+            
+            ws.onerror = function(err) {
+                out.innerHTML += "\nWebSocket Error occurred.\n";
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+        }
+    </script>
+</body>
+</html>

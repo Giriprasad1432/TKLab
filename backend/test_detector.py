@@ -93,9 +93,12 @@ while True:
     # Calculate occupancy
     # --------------------------------------------------------
 
+    frame_height, frame_width = frame.shape[:2]
     density = calculate_density(
-        len(people),
-        capacity
+        people,
+        capacity,
+        frame_width,
+        frame_height
     )
 
 
@@ -362,6 +365,31 @@ while True:
         2
     )
 
+
+    # ========================================================
+    # DISPLAY ZONE CONCENTRATION
+    # ========================================================
+
+    cv2.putText(
+        frame,
+        f"Zone Max: {density['max_zone_percentage']}%",
+        (20, 320),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (255, 165, 0),
+        2
+    )
+
+    # ========================================================
+    # DRAW 3x3 GRID
+    # ========================================================
+
+    zone_w = int(frame_width / 3)
+    zone_h = int(frame_height / 3)
+
+    for i in range(1, 3):
+        cv2.line(frame, (i * zone_w, 0), (i * zone_w, frame_height), (255, 255, 255), 1)
+        cv2.line(frame, (0, i * zone_h), (frame_width, i * zone_h), (255, 255, 255), 1)
 
     # ========================================================
     # SHOW VIDEO
