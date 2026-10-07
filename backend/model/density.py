@@ -1,9 +1,6 @@
 def calculate_density(people_count, capacity):
-
     occupancy = (people_count / capacity) * 100
-
-    if occupancy > 100:
-        occupancy = 100
+    occupancy = min(occupancy, 100)
 
     if occupancy < 40:
         status = "LOW"
@@ -15,6 +12,6 @@ def calculate_density(people_count, capacity):
         status = "CRITICAL"
 
     return {
-        "occupancy": round(occupancy, 1),
+        "occupancy": round(occupancy),
         "status": status
     }
