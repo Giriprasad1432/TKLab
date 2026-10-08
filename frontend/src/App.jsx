@@ -92,6 +92,17 @@ function App() {
         </div>
       )}
 
+      {metrics && metrics.frame_base64 && (
+        <div className="video-container card" style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+            <h3 style={{ marginTop: 0, color: 'var(--text-secondary)' }}>Live Camera Feed</h3>
+            <img 
+              src={`data:image/jpeg;base64,${metrics.frame_base64}`} 
+              alt="Live Crowd Feed" 
+              style={{ maxWidth: '100%', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} 
+            />
+        </div>
+      )}
+
       {metrics && (
         <div className="dashboard-grid">
           

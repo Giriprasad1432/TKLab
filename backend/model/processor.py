@@ -29,7 +29,7 @@ class CrowdAnalyzer:
         self.max_zone_people_overall = 0
         self.max_zone_percentage_overall = 0.0
 
-    def process_frame(self, frame):
+    def process_frame(self, frame, draw=False):
         self.frame_count += 1
         people = detect_people(frame)
         
@@ -140,6 +140,16 @@ class CrowdAnalyzer:
             
         self.previous_average_speed = average_speed
         
+        if draw:
+            zone_w = int(frame_width / 3)
+            zone_h = int(frame_height / 3)
+            for i in range(1, 3):
+                cv2.line(frame, (i * zone_w, 0), (i * zone_w, frame_height), (255, 255, 255), 1)
+                cv2.line(frame, (0, i * zone_h), (frame_width, i * zone_h), (255, 255, 255), 1)
+            for p in people:
+                cv2.rectangle(frame, (p["x1"], p["y1"]), (p["x2"], p["y2"]), (0, 255, 0), 2)
+                cv2.putText(frame, f"ID:{p['id']}", (p["x1"], max(20, p["y1"]-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
+
         return {
             "people_count": current_people_count,
             "occupancy": density["occupancy"],

@@ -4,6 +4,7 @@ import tempfile
 import asyncio
 import time
 import cv2
+import base64
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import Dict
@@ -84,7 +85,12 @@ async def websocket_analyze(websocket: WebSocket, capacity: int = 20):
                 await websocket.close(code=1000)
                 break
                 
-            metrics = analyzer.process_frame(frame)
+            metrics = analyzer.process_frame(frame, draw=True)
+            
+            # Encode frame
+            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
+            metrics["frame_base64"] = base64.b64encode(buffer).decode('utf-8')
+            
             await websocket.send_json(metrics)
             
             elapsed = time.time() - start_time
