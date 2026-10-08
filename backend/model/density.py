@@ -2,14 +2,10 @@ def calculate_density(people, capacity, frame_width, frame_height):
     people_count = len(people)
     occupancy = (people_count / capacity) * 100 if capacity > 0 else 0
 
-    if occupancy < 40:
-        status = "LOW"
-    elif occupancy < 70:
-        status = "MEDIUM"
-    elif occupancy < 90:
-        status = "HIGH"
+    if occupancy < 80:
+        status = "NORMAL"
     elif occupancy <= 100:
-        status = "CRITICAL"
+        status = "NEAR_CAPACITY"
     else:
         status = "OVER_CAPACITY"
 

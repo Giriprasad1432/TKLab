@@ -1,7 +1,11 @@
 from ultralytics import YOLO
 
+MODEL_NAME = "yolo11n.pt"
+IMGSZ = 960
+CONFIDENCE = 0.2
+
 # Load YOLO model
-model = YOLO("yolo11n.pt")
+model = YOLO(MODEL_NAME)
 
 
 def detect_people(image):
@@ -11,6 +15,8 @@ def detect_people(image):
         image,
         persist=True,
         classes=[0],
+        conf=CONFIDENCE,
+        imgsz=IMGSZ,
         tracker="bytetrack.yaml",
         verbose=False
     )

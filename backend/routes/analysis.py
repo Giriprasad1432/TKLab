@@ -7,11 +7,16 @@ import cv2
 import base64
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, List, Any
 
 from model.processor import analyze_video, CrowdAnalyzer
 
 router = APIRouter()
+
+class RiskFactor(BaseModel):
+    factor: str
+    score: int
+    reason: str
 
 class AnalysisResponse(BaseModel):
     people_count: int
@@ -30,6 +35,8 @@ class AnalysisResponse(BaseModel):
     collective_movement_percentage: float
     density_change: float
     speed_variance: float
+    risk_factors: List[RiskFactor]
+    fps: float = 0.0
 
 @router.post("/analyze", response_model=AnalysisResponse)
 async def analyze(video: UploadFile = File(...), capacity: int = Form(100)):
@@ -43,8 +50,16 @@ async def analyze(video: UploadFile = File(...), capacity: int = Form(100)):
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(video.file, buffer)
             
-        results = analyze_video(temp_path, capacity)
+        start_time = time.time()
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(None, analyze_video, temp_path, capacity)
+        process_time = time.time() - start_time
         
+        if "fps" not in results:
+            results["fps"] = 0.0
+            
+        print(f"Processed video in {process_time:.4f}s, average FPS: {results.get('fps', 0)}")
+            
         os.remove(temp_path)
         os.rmdir(temp_dir)
         
@@ -85,7 +100,18 @@ async def websocket_analyze(websocket: WebSocket, capacity: int = 20):
                 await websocket.close(code=1000)
                 break
                 
-            metrics = analyzer.process_frame(frame, draw=True)
+            process_start_time = time.time()
+            loop = asyncio.get_event_loop()
+            metrics = await loop.run_in_executor(None, analyzer.process_frame, frame, True)
+            process_time = time.time() - process_start_time
+            
+            # Real measured processing FPS
+            if process_time > 0:
+                metrics["fps"] = round(1.0 / process_time, 1)
+            else:
+                metrics["fps"] = 0.0
+                
+            print(f"Processed frame in {process_time:.4f}s, measured FPS: {metrics['fps']}")
             
             # Encode frame
             _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 50])

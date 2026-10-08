@@ -23,6 +23,7 @@ class CrowdAnalyzer:
         self.max_occupancy = 0
         self.max_average_speed = 0
         self.any_sudden_movement = False
+        self.smoothed_risk_score = 0.0
         self.max_risk_score = 0
         self.final_risk_level = "SAFE"
         self.worst_zone_density = {f"zone_{i}": 0 for i in range(1, 10)}
@@ -38,6 +39,8 @@ class CrowdAnalyzer:
             self.max_people_count = current_people_count
             
         frame_height, frame_width = frame.shape[:2]
+        diag = math.sqrt(frame_width**2 + frame_height**2)
+        if diag == 0: diag = 1
         density = calculate_density(people, self.capacity, frame_width, frame_height)
         
         if density["occupancy"] > self.max_occupancy:
@@ -81,7 +84,7 @@ class CrowdAnalyzer:
                     dy = history[i][2] - history[i-1][2]
                     dt = (history[i][0] - history[i-1][0]) / self.fps
                     if dt > 0:
-                        spd = math.sqrt(dx**2 + dy**2) / dt
+                        spd = (math.sqrt(dx**2 + dy**2) / diag) / dt
                         person_speeds.append(spd)
                         
                 if person_speeds:
@@ -127,16 +130,40 @@ class CrowdAnalyzer:
             self.max_average_speed = average_speed
             
         speed_change = average_speed - self.previous_average_speed
-        sudden_movement = (self.previous_average_speed > 0 and speed_change > 100)
+        sudden_movement = (self.previous_average_speed > 0 and speed_change > 0.1)
         
         if sudden_movement:
             self.any_sudden_movement = True
             
-        risk = calculate_risk(density["occupancy"], average_speed, sudden_movement)
+        raw_risk = calculate_risk(
+            occupancy=density["occupancy"], 
+            capacity=self.capacity,
+            max_zone_people=density["max_zone_people"],
+            max_zone_percentage=density["max_zone_percentage"], 
+            density_change=density_change, 
+            average_speed=average_speed, 
+            average_acceleration=average_acceleration, 
+            direction_consistency=direction_consistency, 
+            collective_movement_percentage=collective_movement_percentage
+        )
         
-        if risk["score"] > self.max_risk_score:
-            self.max_risk_score = risk["score"]
-            self.final_risk_level = risk["level"]
+        current_score = raw_risk["score"]
+        if current_score >= self.smoothed_risk_score:
+            self.smoothed_risk_score = 0.8 * current_score + 0.2 * self.smoothed_risk_score
+        else:
+            self.smoothed_risk_score = 0.15 * current_score + 0.85 * self.smoothed_risk_score
+            
+        final_score = int(self.smoothed_risk_score)
+        if final_score < 30:
+            final_level = "SAFE"
+        elif final_score < 60:
+            final_level = "WARNING"
+        else:
+            final_level = "CRITICAL"
+        
+        if final_score > self.max_risk_score:
+            self.max_risk_score = final_score
+            self.final_risk_level = final_level
             
         self.previous_average_speed = average_speed
         
@@ -157,11 +184,12 @@ class CrowdAnalyzer:
             "zone_density": density["zone_density"],
             "max_zone_people": density["max_zone_people"],
             "max_zone_percentage": density["max_zone_percentage"],
-            "average_speed": round(average_speed, 1),
+            "average_speed": round(average_speed, 3),
             "sudden_movement": sudden_movement,
-            "risk_score": risk["score"],
-            "risk_level": risk["level"],
-            "average_acceleration": round(average_acceleration, 2),
+            "risk_score": final_score,
+            "risk_level": final_level,
+            "risk_factors": raw_risk["factors"],
+            "average_acceleration": round(average_acceleration, 3),
             "dominant_direction": round(dominant_direction, 1),
             "direction_consistency": round(direction_consistency, 2),
             "collective_movement_percentage": round(collective_movement_percentage, 1),
@@ -181,6 +209,7 @@ class CrowdAnalyzer:
             "sudden_movement": self.any_sudden_movement,
             "risk_score": self.max_risk_score,
             "risk_level": self.final_risk_level,
+            "risk_factors": [],
             # We add 0 for temporal features in the batch summary
             "average_acceleration": 0.0,
             "dominant_direction": 0.0,
@@ -202,6 +231,9 @@ def analyze_video(video_path, capacity):
         
     analyzer = CrowdAnalyzer(capacity=capacity, fps=fps)
 
+    import time
+    start_time = time.time()
+    
     while True:
         ret, frame = video.read()
         if not ret:
@@ -210,4 +242,14 @@ def analyze_video(video_path, capacity):
         analyzer.process_frame(frame)
         
     video.release()
-    return analyzer.get_summary()
+    
+    total_time = time.time() - start_time
+    summary = analyzer.get_summary()
+    
+    if total_time > 0 and analyzer.frame_count > 0:
+        summary["fps"] = round(analyzer.frame_count / total_time, 1)
+    else:
+        summary["fps"] = 0.0
+        
+    return summary
+
