@@ -1,0 +1,8 @@
+# TKLab Crowd-Optimized ByteTrack Configuration
+tracker_type: bytetrack
+track_high_thresh: 0.15 # Lowered to reliably track distant & partially occluded pedestrians
+track_low_thresh: 0.05  # Recovers low-confidence detections at frame borders
+new_track_thresh: 0.15  # Allows newly entering or distant edge persons to begin tracking
+track_buffer: 45        # Keeps lost tracks alive for 45 frames (1.5-2 seconds) through occlusions
+match_thresh: 0.8       # Strict bounding box IoU match
+fuse_score: True        # Fuses detection score with motion for high stability

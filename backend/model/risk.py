@@ -1,8 +1,21 @@
-def calculate_risk(occupancy, capacity, max_zone_people, max_zone_percentage, density_change, average_speed, average_acceleration, direction_consistency, collective_movement_percentage):
+def calculate_risk(
+    occupancy,
+    capacity,
+    max_zone_people,
+    max_zone_percentage,
+    density_change,
+    average_speed,
+    average_acceleration,
+    direction_consistency,
+    collective_movement_percentage,
+    commotion_score: float = 0.0,
+    isolated_cluster: bool = False,
+    max_zone_id: str = "zone_1"
+):
     score = 0
     factors = []
 
-    # Occupancy contribution (0 below 60%, ramp up to +30 at 100%, up to +45 at 150%+)
+    # 1. Occupancy contribution (0 below 60%, ramp up to +30 at 100%, up to +45 at 150%+)
     if occupancy >= 150:
         occ_score = 45
     elif occupancy >= 100:
@@ -14,10 +27,14 @@ def calculate_risk(occupancy, capacity, max_zone_people, max_zone_percentage, de
         
     occ_score = int(min(45, occ_score))
     if occ_score > 0:
-        score += occ_score
-        factors.append({"factor": "occupancy", "score": occ_score, "reason": "Elevated occupancy"})
+        reason = (
+            f"Critical over-capacity ({int(occupancy)}% of venue capacity)"
+            if occupancy >= 100
+            else f"Elevated occupancy ({int(occupancy)}% of venue capacity)"
+        )
+        factors.append({"factor": "occupancy", "score": occ_score, "reason": reason})
 
-    # Max zone concentration (up to +25)
+    # 2. Max zone concentration (up to +25)
     zone_score = 0
     max_zone_relative_to_cap = (max_zone_people / capacity) * 100 if capacity > 0 else 0
     if max_zone_relative_to_cap >= 50:
@@ -35,19 +52,56 @@ def calculate_risk(occupancy, capacity, max_zone_people, max_zone_percentage, de
     zone_score = min(25, zone_score)
     if zone_score > 0:
         score += zone_score
-        factors.append({"factor": "zone_concentration", "score": zone_score, "reason": "High concentration in single zone"})
+        factors.append({
+            "factor": "zone_concentration",
+            "score": zone_score,
+            "reason": f"High crowd concentration in single zone ({max_zone_percentage:.0f}% of crowd)"
+        })
 
-    # Density change (up to +10)
+    # 3. Isolated Dense Gathering (surroundings clear, but tight clump in one region)
+    if isolated_cluster:
+        clump_score = 15
+        score += clump_score
+        clean_zone = max_zone_id.replace("_", " ").title()
+        factors.append({
+            "factor": "isolated_cluster",
+            "score": clump_score,
+            "reason": f"Abnormal localized gathering in {clean_zone} ({max_zone_people} people) despite clear venue"
+        })
+
+    # 4. Density surge change (up to +10)
     dc_score = 0
     if density_change >= 5:
         dc_score = min(10, int(density_change))
     if dc_score > 0:
         score += dc_score
-        factors.append({"factor": "density_change", "score": dc_score, "reason": "Sudden density increase"})
+        factors.append({
+            "factor": "density_change",
+            "score": dc_score,
+            "reason": f"Rapid crowd density surge (+{int(density_change)} people)"
+        })
 
-    # Motion indicators (up to +30), only count when density is elevated (occupancy >= 60)
+    # 5. Violent Commotion / Scuffle / Fight Anomaly
+    if commotion_score >= 0.65:
+        comm_score = 25
+        score += comm_score
+        factors.append({
+            "factor": "violent_commotion",
+            "score": comm_score,
+            "reason": "Intense erratic movement & opposing velocity turbulence (potential fight/scuffle)"
+        })
+    elif commotion_score >= 0.40:
+        comm_score = 15
+        score += comm_score
+        factors.append({
+            "factor": "violent_commotion",
+            "score": comm_score,
+            "reason": "Elevated movement agitation & localized directional clash"
+        })
+
+    # 6. Directional Motion & Stampede Panic Rush (up to +30)
     motion_score = 0
-    if occupancy >= 60:
+    if occupancy >= 50 or collective_movement_percentage >= 60:
         if average_speed >= 0.2:
             motion_score += 10
         elif average_speed >= 0.1:
@@ -67,13 +121,16 @@ def calculate_risk(occupancy, capacity, max_zone_people, max_zone_percentage, de
     motion_score = min(30, motion_score)
     if motion_score > 0:
         score += motion_score
-        factors.append({"factor": "motion_indicators", "score": motion_score, "reason": "Concerning crowd movement patterns"})
+        factors.append({
+            "factor": "motion_indicators",
+            "score": motion_score,
+            "reason": "Concerning crowd movement & velocity patterns"
+        })
 
-    # Limit total score
-    if score > 100:
-        score = 100
+    # Limit total score to [0, 100]
+    score = max(0, min(100, score))
 
-    # Risk level (raw)
+    # Risk level categorization
     if score < 30:
         level = "SAFE"
     elif score < 60:
