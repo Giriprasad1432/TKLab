@@ -91,16 +91,20 @@ export default function LiveCameraFeed({ metrics, isConnected, frameCount, onCon
             {/* Bottom Stream Status */}
             <div className="stream-overlay-bottom font-mono">
               <div className="overlay-stat">
-                <span className="stat-lbl">DETECTED PEOPLE:</span>
+                <span className="stat-lbl">DETECTED:</span>
                 <span className="stat-val text-primary">{metrics.people_count}</span>
               </div>
               <div className="overlay-stat">
-                <span className="stat-lbl">AVG VELOCITY:</span>
-                <span className="stat-val">{metrics.average_speed} px/s</span>
+                <span className="stat-lbl">SEPARATED:</span>
+                <span className="stat-val text-safe">{metrics.separated_people_count ?? 0}</span>
               </div>
               <div className="overlay-stat">
-                <span className="stat-lbl">MAX ZONE:</span>
-                <span className="stat-val text-warning">{metrics.max_zone_people} PPL</span>
+                <span className="stat-lbl">CROWD PACKS:</span>
+                <span className="stat-val text-warning">{metrics.clusters?.length ?? 0} ({metrics.clustered_people_count ?? 0} ppl)</span>
+              </div>
+              <div className="overlay-stat">
+                <span className="stat-lbl">AVG VEL:</span>
+                <span className="stat-val">{metrics.average_speed} px/s</span>
               </div>
             </div>
           </div>

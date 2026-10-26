@@ -10,7 +10,9 @@ def calculate_risk(
     collective_movement_percentage,
     commotion_score: float = 0.0,
     isolated_cluster: bool = False,
-    max_zone_id: str = "zone_1"
+    max_zone_id: str = "zone_1",
+    clusters: list = None,
+    predicted_surges: list = None
 ):
     score = 0
     factors = []
@@ -69,7 +71,43 @@ def calculate_risk(
             "reason": f"Abnormal localized gathering in {clean_zone} ({max_zone_people} people) despite clear venue"
         })
 
-    # 4. Density surge change (up to +10)
+    # 4. Crowd Pack Density Compression (evaluates dense clusters directly)
+    if clusters:
+        critical_clusters = [c for c in clusters if c.get("density_level") == "CRITICAL"]
+        high_clusters = [c for c in clusters if c.get("density_level") == "HIGH"]
+        
+        if critical_clusters:
+            comp_score = 20
+            score += comp_score
+            c = critical_clusters[0]
+            factors.append({
+                "factor": "cluster_compression",
+                "score": comp_score,
+                "reason": f"Severe physical crowd compression in Pack #{c.get('cluster_id', 1)} ({c.get('people_count')} people, density index {c.get('density_index')})"
+            })
+        elif high_clusters:
+            comp_score = 10
+            score += comp_score
+            c = high_clusters[0]
+            factors.append({
+                "factor": "cluster_compression",
+                "score": comp_score,
+                "reason": f"Elevated crowd packing density in Pack #{c.get('cluster_id', 1)} ({c.get('people_count')} people)"
+            })
+
+    # 5. Predictive Bottleneck Surges (forecasting crowd flow towards congested zones)
+    if predicted_surges:
+        surge_score = 15
+        score += surge_score
+        s = predicted_surges[0]
+        target_name = str(s.get("target_zone", "")).replace("_", " ").title()
+        factors.append({
+            "factor": "predictive_bottleneck_surge",
+            "score": surge_score,
+            "reason": f"Predictive flow surge: Crowd pack of {s.get('people_count')} marching toward {target_name} (ETA ~{s.get('eta_seconds', 3)}s)"
+        })
+
+    # 6. Density surge change (up to +10)
     dc_score = 0
     if density_change >= 5:
         dc_score = min(10, int(density_change))
@@ -81,7 +119,7 @@ def calculate_risk(
             "reason": f"Rapid crowd density surge (+{int(density_change)} people)"
         })
 
-    # 5. Violent Commotion / Scuffle / Fight Anomaly
+    # 7. Violent Commotion / Scuffle / Fight Anomaly
     if commotion_score >= 0.65:
         comm_score = 25
         score += comm_score
@@ -99,7 +137,7 @@ def calculate_risk(
             "reason": "Elevated movement agitation & localized directional clash"
         })
 
-    # 6. Directional Motion & Stampede Panic Rush (up to +30)
+    # 8. Directional Motion & Stampede Panic Rush (up to +30)
     motion_score = 0
     if occupancy >= 50 or collective_movement_percentage >= 60:
         if average_speed >= 0.2:

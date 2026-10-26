@@ -61,6 +61,42 @@ export default function AlertPanel({ metrics, isConnected, soundEnabled }) {
       });
     }
 
+    if (metrics.commotion_level === 'CRITICAL' || metrics.commotion_level === 'ELEVATED') {
+      newAlerts.push({
+        id: Date.now() + 5,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        level: metrics.commotion_level === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
+        title: 'Violent Commotion / Fight Alert',
+        message: `Turbulent agitation and opposing trajectory clashes detected (${metrics.commotion_level}).`,
+        acknowledged: false
+      });
+    }
+
+    if (metrics.predicted_density_surges && metrics.predicted_density_surges.length > 0) {
+      const surge = metrics.predicted_density_surges[0];
+      const targetZone = (surge.target_zone || '').replace('_', ' ').toUpperCase();
+      newAlerts.push({
+        id: Date.now() + 6,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        level: 'WARNING',
+        title: 'Predictive Bottleneck Surge',
+        message: `Crowd pack of ${surge.people_count} marching towards ${targetZone} (ETA ~${surge.eta_seconds}s).`,
+        acknowledged: false
+      });
+    }
+
+    const criticalCluster = (metrics.clusters || []).find(c => c.density_level === 'CRITICAL');
+    if (criticalCluster) {
+      newAlerts.push({
+        id: Date.now() + 7,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        level: 'CRITICAL',
+        title: 'Severe Crowd Pack Compression',
+        message: `Pack #${criticalCluster.cluster_id} (${criticalCluster.people_count} people) compressed to critical packing density.`,
+        acknowledged: false
+      });
+    }
+
     if (newAlerts.length > 0) {
       setAlerts(prev => {
         // Prevent exact duplicates within last 3 seconds

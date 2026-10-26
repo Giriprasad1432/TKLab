@@ -6,7 +6,8 @@ async def test_ws():
     uri = "ws://localhost:8000/ws/analyze"
     print(f"Connecting to {uri}...")
     try:
-        async with websockets.connect(uri) as websocket:
+        async with websockets.connect(uri, open_timeout=20) as websocket:
+
             print("Connected! Waiting for messages...")
             # Receive a few frames
             for i in range(3):

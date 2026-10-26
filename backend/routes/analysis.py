@@ -48,6 +48,14 @@ class AnalysisResponse(BaseModel):
     commotion_level: str = "NORMAL"
     commotion_score: float = 0.0
     avg_tortuosity: float = 1.0
+    max_clusters_count: int = 0
+    max_pack_size: int = 0
+    max_clustered_people: int = 0
+    max_separated_people: int = 0
+    clusters: List[Dict] = Field(default_factory=list)
+    separated_people_count: int = 0
+    clustered_people_count: int = 0
+    predicted_density_surges: List[Dict] = Field(default_factory=list)
     fps: float = 0.0
     total_frames: Optional[int] = None
     processed_frames: Optional[int] = None
@@ -61,6 +69,10 @@ class FrameAnalysisResponse(BaseModel):
     max_zone_people: int
     max_zone_percentage: float
     detections: List[Dict] = Field(default_factory=list)
+    clusters: List[Dict] = Field(default_factory=list)
+    separated_people_count: int = 0
+    clustered_people_count: int = 0
+    isolated_cluster: bool = False
 
 
 def resolve_sample_video_path() -> str:
@@ -152,7 +164,11 @@ async def analyze_frame(
         "zone_density": density["zone_density"],
         "max_zone_people": density["max_zone_people"],
         "max_zone_percentage": density["max_zone_percentage"],
-        "detections": people
+        "detections": people,
+        "clusters": density.get("clusters", []),
+        "separated_people_count": density.get("separated_people_count", 0),
+        "clustered_people_count": density.get("clustered_people_count", 0),
+        "isolated_cluster": density.get("isolated_cluster", False)
     }
 
 

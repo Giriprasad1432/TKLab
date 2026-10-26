@@ -39,6 +39,12 @@ class CrowdAnalyzer:
         self.max_zone_people_overall = 0
         self.max_zone_percentage_overall = 0.0
         self.peak_risk_factors = []
+        
+        # Crowd pack & cluster session analytics
+        self.max_clusters_count = 0
+        self.max_pack_size = 0
+        self.max_clustered_people = 0
+        self.max_separated_people = 0
 
     def process_frame(self, frame, draw: bool = False):
         self.frame_count += 1
@@ -201,6 +207,72 @@ class CrowdAnalyzer:
 
         isolated_cluster = density.get("isolated_cluster", False)
         max_zone_id = density.get("max_zone_id", "zone_1")
+        clusters = density.get("clusters", [])
+        separated_people_count = density.get("separated_people_count", 0)
+        clustered_people_count = density.get("clustered_people_count", 0)
+
+        # Update peak crowd pack records
+        if len(clusters) > self.max_clusters_count:
+            self.max_clusters_count = len(clusters)
+        for c in clusters:
+            if c["people_count"] > self.max_pack_size:
+                self.max_pack_size = c["people_count"]
+        if clustered_people_count > self.max_clustered_people:
+            self.max_clustered_people = clustered_people_count
+        if separated_people_count > self.max_separated_people:
+            self.max_separated_people = separated_people_count
+
+        # Compute collective pack velocity and predictive flow trajectory for each cluster
+        zone_w_f = float(frame_width) / 3.0
+        zone_h_f = float(frame_height) / 3.0
+        predicted_surges = []
+
+        for c in clusters:
+            m_vx = []
+            m_vy = []
+            for mid in c.get("member_ids", []):
+                if mid in self.person_history and len(self.person_history[mid]) >= 2:
+                    h = self.person_history[mid]
+                    dt = (h[-1][0] - h[0][0]) / self.fps
+                    if dt > 0:
+                        m_vx.append((h[-1][1] - h[0][1]) / dt)
+                        m_vy.append((h[-1][2] - h[0][2]) / dt)
+
+            c_vx = float(np.mean(m_vx)) if m_vx else 0.0
+            c_vy = float(np.mean(m_vy)) if m_vy else 0.0
+            c_speed = math.sqrt(c_vx**2 + c_vy**2)
+
+            flow_angle = math.degrees(math.atan2(c_vy, c_vx)) if c_speed > 5.0 else 0.0
+            if flow_angle < 0:
+                flow_angle += 360.0
+
+            c["velocity_x"] = round(c_vx, 1)
+            c["velocity_y"] = round(c_vy, 1)
+            c["speed_px_s"] = round(c_speed, 1)
+            c["flow_angle"] = round(flow_angle, 1)
+
+            # Forecast position in 3 seconds
+            pred_cx = max(0.0, min(float(frame_width), c["center"][0] + c_vx * 3.0))
+            pred_cy = max(0.0, min(float(frame_height), c["center"][1] + c_vy * 3.0))
+            pred_col = max(0, min(int(pred_cx // zone_w_f), 2))
+            pred_row = max(0, min(int(pred_cy // zone_h_f), 2))
+            pred_zone = f"zone_{pred_row * 3 + pred_col + 1}"
+
+            c["predicted_center"] = (round(pred_cx, 1), round(pred_cy, 1))
+            c["predicted_zone"] = pred_zone
+            is_surge = bool(c_speed >= 12.0 and pred_zone != c["zone_id"])
+            c["predicted_surge"] = is_surge
+
+            if is_surge:
+                predicted_surges.append({
+                    "cluster_id": c["cluster_id"],
+                    "people_count": c["people_count"],
+                    "from_zone": c["zone_id"],
+                    "target_zone": pred_zone,
+                    "speed_px_s": round(c_speed, 1),
+                    "flow_angle": round(flow_angle, 1),
+                    "eta_seconds": 3.0
+                })
             
         raw_risk = calculate_risk(
             occupancy=density["occupancy"], 
@@ -214,7 +286,9 @@ class CrowdAnalyzer:
             collective_movement_percentage=collective_movement_percentage,
             commotion_score=commotion_score,
             isolated_cluster=isolated_cluster,
-            max_zone_id=max_zone_id
+            max_zone_id=max_zone_id,
+            clusters=clusters,
+            predicted_surges=predicted_surges
         )
 
         
@@ -245,47 +319,104 @@ class CrowdAnalyzer:
         if draw:
             zone_w = int(frame_width / 3)
             zone_h = int(frame_height / 3)
-            # Grid
+            # 3x3 Grid
             for i in range(1, 3):
-                cv2.line(frame, (i * zone_w, 0), (i * zone_w, frame_height), (120, 120, 120), 1, cv2.LINE_AA)
-                cv2.line(frame, (0, i * zone_h), (frame_width, i * zone_h), (120, 120, 120), 1, cv2.LINE_AA)
+                cv2.line(frame, (i * zone_w, 0), (i * zone_w, frame_height), (90, 90, 90), 1, cv2.LINE_AA)
+                cv2.line(frame, (0, i * zone_h), (frame_width, i * zone_h), (90, 90, 90), 1, cv2.LINE_AA)
             
             # Highlight isolated cluster zone if detected
             if isolated_cluster:
-                # determine zone row & col
                 try:
                     z_idx = int(max_zone_id.split("_")[1]) - 1
                     z_r, z_c = z_idx // 3, z_idx % 3
                     zx1, zy1 = z_c * zone_w, z_r * zone_h
                     zx2, zy2 = zx1 + zone_w, zy1 + zone_h
                     overlay = frame.copy()
-                    cv2.rectangle(overlay, (zx1, zy1), (zx2, zy2), (0, 165, 255), -1)
-                    cv2.addWeighted(overlay, 0.25, frame, 0.75, 0, frame)
+                    cv2.rectangle(overlay, (zx1, zy1), (zx2, zy2), (0, 140, 255), -1)
+                    cv2.addWeighted(overlay, 0.20, frame, 0.80, 0, frame)
                     cv2.rectangle(frame, (zx1, zy1), (zx2, zy2), (0, 165, 255), 2)
-                    cv2.putText(frame, f"DENSE CLUSTER ({max_zone_people})", (zx1 + 10, zy1 + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 220, 255), 2, cv2.LINE_AA)
+                    cv2.putText(frame, f"DENSE GATHERING ({max_zone_people})", (zx1 + 10, zy1 + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 220, 255), 2, cv2.LINE_AA)
                 except Exception:
                     pass
 
             # Highlight commotion / scuffle alert banner
             if commotion_level != "NORMAL":
                 comm_color = (0, 0, 255) if commotion_level == "CRITICAL" else (0, 165, 255)
-                cv2.rectangle(frame, (frame_width // 4, 10), (frame_width * 3 // 4, 45), (10, 10, 20), -1)
+                cv2.rectangle(frame, (frame_width // 4, 10), (frame_width * 3 // 4, 45), (15, 15, 25), -1)
                 cv2.rectangle(frame, (frame_width // 4, 10), (frame_width * 3 // 4, 45), comm_color, 2)
                 cv2.putText(frame, f"! COMMOTION / FIGHT ALERT ({commotion_level}) !", (frame_width // 4 + 20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.65, comm_color, 2, cv2.LINE_AA)
 
-            # Draw tracking trail & detections
+            # Draw DENSE CROWD PACKS with bounding contours, density badges, & flow arrows
+            for c in clusters:
+                bx1, by1, bx2, by2 = c["bbox"]
+                d_lvl = c.get("density_level", "LOW")
+                if d_lvl == "CRITICAL":
+                    pack_color = (0, 0, 255)       # Red
+                elif d_lvl == "HIGH":
+                    pack_color = (0, 120, 255)     # Deep Orange
+                else:
+                    pack_color = (0, 215, 255)     # Amber-Gold
+
+                # Subtle pack area wash
+                pack_overlay = frame.copy()
+                cv2.rectangle(pack_overlay, (bx1, by1), (bx2, by2), pack_color, -1)
+                cv2.addWeighted(pack_overlay, 0.15, frame, 0.85, 0, frame)
+                
+                # Bounding contour
+                cv2.rectangle(frame, (bx1, by1), (bx2, by2), pack_color, 2, cv2.LINE_AA)
+                
+                # Header Badge
+                badge_text = f"CROWD PACK #{c['cluster_id']}: {c['people_count']} PPL | {d_lvl} (D:{c['density_index']})"
+                (tw, th), _ = cv2.getTextSize(badge_text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+                badge_y1 = max(0, by1 - th - 8)
+                cv2.rectangle(frame, (bx1, badge_y1), (bx1 + tw + 10, by1), (20, 20, 30), -1)
+                cv2.rectangle(frame, (bx1, badge_y1), (bx1 + tw + 10, by1), pack_color, 1)
+                cv2.putText(frame, badge_text, (bx1 + 5, by1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.45, pack_color, 1, cv2.LINE_AA)
+
+                # Collective Flow Vector Arrow
+                ccx, ccy = int(c["center"][0]), int(c["center"][1])
+                cvx, cvy = c.get("velocity_x", 0.0), c.get("velocity_y", 0.0)
+                if c.get("speed_px_s", 0.0) >= 8.0:
+                    arr_end_x = int(ccx + cvx * 0.7)
+                    arr_end_y = int(ccy + cvy * 0.7)
+                    cv2.arrowedLine(frame, (ccx, ccy), (arr_end_x, arr_end_y), (255, 255, 0), 2, tipLength=0.35)
+
+                # Predictive Surge indicator
+                if c.get("predicted_surge", False):
+                    p_cx, p_cy = int(c["predicted_center"][0]), int(c["predicted_center"][1])
+                    surge_text = f"SURGE -> {c['predicted_zone'].replace('_', ' ').upper()} (~3s)"
+                    cv2.putText(frame, surge_text, (bx1 + 5, by2 + 16), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 2, cv2.LINE_AA)
+
+            # Draw Individual Pedestrians (Separated vs Clustered)
             for p in people:
                 pid = p.get("id", -1)
-                color = (0, 255, 0) if final_level == "SAFE" else ((0, 215, 255) if final_level == "WARNING" else (0, 0, 255))
-                cv2.rectangle(frame, (p["x1"], p["y1"]), (p["x2"], p["y2"]), color, 2)
+                in_cluster = p.get("in_cluster", False)
                 
-                label = f"ID:{pid}" if pid >= 0 else "person"
-                cv2.putText(frame, label, (p["x1"], max(18, p["y1"]-6)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+                if in_cluster:
+                    # Subtle amber border for persons inside a crowd pack
+                    box_color = (0, 165, 255)
+                    thickness = 1
+                    label = f"ID:{pid} [C{p.get('cluster_id', '')}]" if pid >= 0 else "person"
+                else:
+                    # Crisp neon green border for separated individuals with clear ID
+                    box_color = (0, 255, 128)
+                    thickness = 2
+                    label = f"ID:{pid}" if pid >= 0 else "person"
+
+                cv2.rectangle(frame, (p["x1"], p["y1"]), (p["x2"], p["y2"]), box_color, thickness)
+                cv2.putText(frame, label, (p["x1"], max(16, p["y1"] - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1, cv2.LINE_AA)
                 
-                # Draw motion trail if history exists
+                # Motion trail
                 if pid in self.person_history and len(self.person_history[pid]) >= 2:
                     pts = np.array([(int(pt[1]), int(pt[2])) for pt in self.person_history[pid]], np.int32)
-                    cv2.polylines(frame, [pts], isClosed=False, color=(255, 200, 0), thickness=1, lineType=cv2.LINE_AA)
+                    cv2.polylines(frame, [pts], isClosed=False, color=(0, 220, 255) if in_cluster else (128, 255, 0), thickness=1, lineType=cv2.LINE_AA)
+
+            # Top HUD Bar
+            hud_bg = frame.copy()
+            cv2.rectangle(hud_bg, (0, 0), (frame_width, 28), (15, 15, 20), -1)
+            cv2.addWeighted(hud_bg, 0.70, frame, 0.30, 0, frame)
+            hud_text = f"CROWD: {current_people_count} | SEPARATED: {separated_people_count} | PACKS: {len(clusters)} ({clustered_people_count} PPL) | RISK: {final_score} [{final_level}]"
+            cv2.putText(frame, hud_text, (15, 19), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 1, cv2.LINE_AA)
 
         return {
             "people_count": current_people_count,
@@ -309,7 +440,11 @@ class CrowdAnalyzer:
             "isolated_cluster_zone": max_zone_id,
             "commotion_level": commotion_level,
             "commotion_score": commotion_score,
-            "avg_tortuosity": round(avg_tortuosity, 2)
+            "avg_tortuosity": round(avg_tortuosity, 2),
+            "clusters": clusters,
+            "separated_people_count": separated_people_count,
+            "clustered_people_count": clustered_people_count,
+            "predicted_density_surges": predicted_surges
         }
 
     def get_summary(self):
@@ -338,7 +473,11 @@ class CrowdAnalyzer:
             "direction_consistency": round(self.max_direction_consistency, 2),
             "collective_movement_percentage": round(self.max_collective_movement_percentage, 1),
             "density_change": round(self.max_density_change, 1),
-            "speed_variance": round(self.max_speed_variance, 3)
+            "speed_variance": round(self.max_speed_variance, 3),
+            "max_clusters_count": self.max_clusters_count,
+            "max_pack_size": self.max_pack_size,
+            "max_clustered_people": self.max_clustered_people,
+            "max_separated_people": self.max_separated_people
         }
 
 

@@ -31,7 +31,7 @@ export default function TopMetrics({ metrics, capacity, isConnected }) {
             {isConnected ? peopleCount.toLocaleString() : '---'}
           </div>
           <div className="metric-sub text-muted">
-            Site Max Capacity: <span className="font-mono text-primary">{capacity}</span>
+            Separated: <span className="font-mono text-safe">{metrics?.separated_people_count ?? 0}</span> | Packs: <span className="font-mono text-warning">{metrics?.clusters?.length ?? 0}</span> ({metrics?.clustered_people_count ?? 0} ppl)
           </div>
         </div>
         <div className="metric-progress-bar">
