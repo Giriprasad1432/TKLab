@@ -41,13 +41,13 @@ export default function MapZonesPage({ metrics, isConnected }) {
         {/* GIS Map Vector Canvas */}
         <div className="gis-canvas">
           <div className="gis-grid-overlay" />
-          
+
           {mapSectors.map((sector) => {
             const count = zoneDensity[`zone_${sector.id}`] || 0;
             const isHigh = count >= 4;
             return (
-              <div 
-                key={sector.id} 
+              <div
+                key={sector.id}
                 className={`gis-pin-node ${isHigh ? 'pin-critical' : 'pin-normal'}`}
                 style={{ left: sector.x, top: sector.y }}
               >

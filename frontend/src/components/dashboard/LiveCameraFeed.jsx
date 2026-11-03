@@ -1,7 +1,18 @@
 import React, { useState, useRef } from 'react';
-import { Video, Radio, Maximize2, Camera, ShieldAlert, Cpu, Layers } from 'lucide-react';
+import { Video, Radio, Maximize2, Camera, ShieldAlert, Cpu, AlertTriangle, Play, RefreshCw } from 'lucide-react';
 
-export default function LiveCameraFeed({ metrics, isConnected, frameCount, onConnect }) {
+export default function LiveCameraFeed({ 
+  metrics, 
+  isConnected, 
+  frameCount, 
+  onConnect, 
+  selectedSource = 'crowd.mp4',
+  onSelectSource,
+  availableSources = [],
+  capacity,
+  onUpdateCapacity,
+  streamError 
+}) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef(null);
 
@@ -24,15 +35,29 @@ export default function LiveCameraFeed({ metrics, isConnected, frameCount, onCon
     link.click();
   };
 
+  const isLiveCam = selectedSource === 'webcam' || metrics?.is_live;
+
+  const defaultSourcesList = [
+    { id: 'webcam', name: '📹 Live Webcam', type: 'live' },
+    { id: 'crowd.mp4', name: '🎬 Video 1 (Entrance)', type: 'video' },
+    { id: 'crowd2.mp4', name: '🎬 Video 2 (Dense)', type: 'video' },
+    { id: 'crowd3.mp4', name: '🎬 Video 3 (Motion)', type: 'video' },
+    { id: 'mot20_crowd.mp4', name: '🎬 Video 4 (MOT20)', type: 'video' },
+  ];
+
+  const sourceItems = availableSources.length > 0 ? availableSources : defaultSourcesList;
+
   return (
     <div className="ctrl-card video-feed-card" ref={containerRef}>
       <div className="ctrl-card-header">
         <div className="ctrl-card-title">
-          <Video size={18} className="text-primary" />
-          <span>LIVE CAMERA FEED — CAM 01 (NORTH ENTRY)</span>
+          <Video size={18} className={isLiveCam ? "text-critical" : "text-primary"} />
+          <span>
+            {isLiveCam ? "LIVE WEBCAM FEED — COMPUTER CAMERA 0" : `BENCHMARK FOOTAGE — ${selectedSource.toUpperCase()}`}
+          </span>
           {isConnected && (
-            <span className="live-pill">
-              <span className="live-dot pulse-active"></span> LIVE AI DETECTOR
+            <span className={isLiveCam ? "live-pill status-pill-critical" : "live-pill"}>
+              <span className="live-dot pulse-active"></span> {isLiveCam ? "LIVE CAMERA" : "LIVE AI DETECTOR"}
             </span>
           )}
         </div>
@@ -67,6 +92,53 @@ export default function LiveCameraFeed({ metrics, isConnected, frameCount, onCon
         </div>
       </div>
 
+      {/* Quick Video Source Switcher Toolbar */}
+      <div className="feed-source-bar font-mono">
+        <span className="source-bar-title">
+          <Camera size={13} />
+          <span>FEED SOURCE:</span>
+        </span>
+        <div className="source-pills">
+          {sourceItems.map((s) => {
+            const isItemLive = s.id === 'webcam' || s.type === 'live';
+            const isActive = selectedSource === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                className={`source-pill ${isActive ? (isItemLive ? 'active-live' : 'active') : ''}`}
+                onClick={() => onSelectSource && onSelectSource(s.id)}
+                title={s.description || s.name}
+              >
+                <span>{s.name}</span>
+                {isActive && isConnected && (
+                  <span className="live-dot pulse-active" style={{ width: 6, height: 6 }}></span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Stream Error Notice if active */}
+      {streamError && (
+        <div className="stream-error-notice font-mono">
+          <AlertTriangle size={24} className="text-critical" />
+          <div className="error-title">
+            <strong>CAMERA ERROR:</strong> {streamError}
+          </div>
+          <div className="placeholder-btn-group">
+            <button 
+              className="ctrl-btn ctrl-btn-primary" 
+              onClick={() => onSelectSource && onSelectSource('crowd.mp4')}
+            >
+              <RefreshCw size={14} />
+              <span>Switch to Test Video 1 (crowd.mp4)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Video Stream Container */}
       <div className="video-stream-box">
         {isConnected && metrics?.frame_base64 ? (
@@ -80,11 +152,11 @@ export default function LiveCameraFeed({ metrics, isConnected, frameCount, onCon
             {/* Video Overlay Info Bar */}
             <div className="stream-overlay-top">
               <div className="stream-location font-mono">
-                <Radio size={12} className="text-critical pulse-active" />
-                <span>ZONE A - MAIN ENTRANCE SECTOR</span>
+                <Radio size={12} className={isLiveCam ? "text-critical pulse-active" : "text-primary pulse-active"} />
+                <span>{isLiveCam ? "LOCAL CAMERA [DEVICE 0] — LIVE MONITOR" : `PRELOADED REPLAY: ${selectedSource}`}</span>
               </div>
               <div className="stream-stats font-mono">
-                <span>FPS: 30</span> | <span>RES: 1280x720</span>
+                <span>FPS: {metrics.fps || 30}</span> | <span>RES: 1280x720</span>
               </div>
             </div>
 
@@ -111,15 +183,37 @@ export default function LiveCameraFeed({ metrics, isConnected, frameCount, onCon
         ) : (
           <div className="video-placeholder">
             <ShieldAlert size={48} className="text-muted placeholder-icon" />
-            <div className="placeholder-title">CAMERA STREAM DISCONNECTED</div>
+            <div className="placeholder-title">
+              {isLiveCam ? "WEBCAM STREAM DISCONNECTED" : "TEST VIDEO STREAM DISCONNECTED"}
+            </div>
             <div className="placeholder-desc">
-              Connect to the live backend WebSocket stream to display AI crowd analysis video feed.
+              Select any of the 4 benchmark videos or switch to Live Webcam using the toolbar above, then start the stream.
             </div>
             {!isConnected && (
-              <button className="ctrl-btn ctrl-btn-primary placeholder-btn" onClick={onConnect}>
-                <Radio size={16} />
-                <span>INITIALIZE LIVE CAMERA STREAM</span>
-              </button>
+              <div className="placeholder-btn-group">
+                <button 
+                  className="ctrl-btn ctrl-btn-primary" 
+                  onClick={() => {
+                    if (onSelectSource && selectedSource !== 'webcam') {
+                      onSelectSource('webcam');
+                    } else if (onConnect) {
+                      onConnect('webcam');
+                    }
+                  }}
+                >
+                  <Camera size={16} />
+                  <span>START LIVE WEBCAM</span>
+                </button>
+                <button 
+                  className="ctrl-btn ctrl-btn-outline" 
+                  onClick={() => {
+                    if (onConnect) onConnect('crowd.mp4');
+                  }}
+                >
+                  <Play size={16} />
+                  <span>PLAY TEST VIDEO (crowd.mp4)</span>
+                </button>
+              </div>
             )}
           </div>
         )}

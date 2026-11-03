@@ -30,8 +30,10 @@ def root():
         "status": "online",
         "version": "1.0.0",
         "endpoints": {
-            "websocket": "/ws/analyze?capacity={capacity}&loop={true|false}",
+            "websocket": "/ws/analyze?capacity={capacity}&source={source}&loop={true|false}",
+            "sources": "GET /sources",
             "batch_video_analysis": "POST /analyze",
+            "preloaded_video_analysis": "POST /analyze/preloaded?filename={name}&capacity={capacity}",
             "frame_analysis": "POST /analyze/frame",
             "health": "GET /health",
             "docs": "/docs"

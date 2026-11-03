@@ -66,17 +66,34 @@ export default function Dashboard() {
           <div className="flex gap-2 items-center">
             {status !== 'CONNECTED' ? (
               <>
-                <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg">
+                <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 px-2 py-1 rounded-lg">
                   <span className="text-sm text-slate-400">Capacity:</span>
+                  <button 
+                    type="button" 
+                    className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-white font-bold"
+                    onClick={() => setCapacity(Math.max(1, capacity - 5))}
+                  >-</button>
                   <input 
                     type="number" 
-                    value={capacity} 
-                    onChange={e => setCapacity(Math.max(1, parseInt(e.target.value) || 1))} 
-                    className="bg-transparent text-white w-16 text-center outline-none font-mono"
+                    value={capacity === 0 ? '' : capacity} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '') setCapacity(0);
+                      else setCapacity(Math.max(1, parseInt(val, 10) || 1));
+                    }}
+                    onBlur={() => {
+                      if (!capacity || capacity < 1) setCapacity(20);
+                    }}
+                    className="bg-transparent text-white w-14 text-center outline-none font-mono font-bold"
                     min="1"
                   />
+                  <button 
+                    type="button" 
+                    className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-white font-bold"
+                    onClick={() => setCapacity(capacity + 5)}
+                  >+</button>
                 </div>
-                <button onClick={connect} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition">
+                <button onClick={connect} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition font-medium">
                   <Play className="w-4 h-4" /> Connect
                 </button>
               </>
@@ -126,13 +143,32 @@ export default function Dashboard() {
           <p className="text-slate-500 text-lg">Set your site capacity and click Connect to start real-time analysis.</p>
           <div className="flex items-center gap-3 bg-slate-900 border border-slate-700 p-4 rounded-xl shadow-lg">
              <label className="text-slate-300 font-medium">Site Capacity:</label>
-             <input 
-                type="number" 
-                value={capacity} 
-                onChange={e => setCapacity(Math.max(1, parseInt(e.target.value) || 1))} 
-                className="bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white outline-none focus:border-blue-500 w-24 text-center font-mono text-lg"
-                min="1"
-             />
+             <div className="flex items-center gap-1 bg-slate-800 border border-slate-600 rounded px-2 py-1">
+               <button 
+                 type="button" 
+                 className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-white font-bold text-sm"
+                 onClick={() => setCapacity(Math.max(1, capacity - 5))}
+               >-</button>
+               <input 
+                  type="number" 
+                  value={capacity === 0 ? '' : capacity} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === '') setCapacity(0);
+                    else setCapacity(Math.max(1, parseInt(val, 10) || 1));
+                  }}
+                  onBlur={() => {
+                    if (!capacity || capacity < 1) setCapacity(20);
+                  }}
+                  className="bg-transparent text-white outline-none w-16 text-center font-mono text-lg font-bold"
+                  min="1"
+               />
+               <button 
+                 type="button" 
+                 className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-white font-bold text-sm"
+                 onClick={() => setCapacity(capacity + 5)}
+               >+</button>
+             </div>
              <button onClick={connect} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition flex items-center gap-2">
                 <Play className="w-5 h-5" /> Start
              </button>

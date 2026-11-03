@@ -25,22 +25,22 @@ export default function ZoneGridMap({ metrics, isConnected }) {
     }
     const ratio = Math.min(1, count / Math.max(maxZoneCount, 1));
     if (count >= 5 || ratio >= 0.7) {
-      return { 
-        backgroundColor: `rgba(239, 68, 68, ${0.25 + ratio * 0.55})`, 
+      return {
+        backgroundColor: `rgba(239, 68, 68, ${0.25 + ratio * 0.55})`,
         color: '#ffffff',
         borderColor: 'var(--risk-critical)',
         boxShadow: '0 0 12px rgba(239, 68, 68, 0.4)'
       };
     }
     if (count >= 3 || ratio >= 0.4) {
-      return { 
-        backgroundColor: `rgba(245, 158, 11, ${0.2 + ratio * 0.4})`, 
+      return {
+        backgroundColor: `rgba(245, 158, 11, ${0.2 + ratio * 0.4})`,
         color: '#ffffff',
         borderColor: 'var(--risk-warning)'
       };
     }
-    return { 
-      backgroundColor: `rgba(56, 189, 248, ${0.1 + ratio * 0.3})`, 
+    return {
+      backgroundColor: `rgba(56, 189, 248, ${0.1 + ratio * 0.3})`,
       color: 'var(--text-primary)',
       borderColor: 'rgba(56, 189, 248, 0.2)'
     };

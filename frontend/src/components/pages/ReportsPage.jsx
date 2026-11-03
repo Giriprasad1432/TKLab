@@ -1,10 +1,13 @@
 import React from 'react';
 import { FileText, Download, ShieldCheck, Printer, CheckCircle } from 'lucide-react';
 
-export default function ReportsPage({ metrics, capacity }) {
+export default function ReportsPage({ metrics, capacity, selectedSource }) {
   const generatePrintReport = () => {
     window.print();
   };
+
+  const isLive = selectedSource === 'webcam' || metrics?.is_live;
+  const sourceLabel = isLive ? 'Live Computer Webcam (Device 0)' : `Preloaded Test Video: ${selectedSource || 'crowd.mp4'}`;
 
   return (
     <div className="page-container">
@@ -33,6 +36,7 @@ export default function ReportsPage({ metrics, capacity }) {
             <h3>STAMPADE CONTROL CENTER — SAFETY AUDIT</h3>
             <div>Date: {new Date().toLocaleDateString()} | Time: {new Date().toLocaleTimeString()}</div>
             <div>Facility: Main Concourse & Exit Hub | Operator ID: CMD-OPS 01</div>
+            <div>Active Video Feed: <strong>{sourceLabel}</strong></div>
           </div>
 
           <div className="report-section">
