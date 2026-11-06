@@ -2,7 +2,15 @@ import React from 'react';
 import ZoneGridMap from '../dashboard/ZoneGridMap';
 import { Users, Gauge, Layers, ShieldCheck, AlertTriangle } from 'lucide-react';
 
-export default function CrowdDensityPage({ metrics, isConnected, capacity }) {
+export default function CrowdDensityPage({ 
+  metrics, 
+  isConnected, 
+  capacity,
+  selectedSource,
+  cameraConfigs,
+  onUpdateDivisionName,
+  onResetDivisions
+}) {
   const peopleCount = metrics?.people_count ?? 0;
   const occupancy = metrics?.occupancy ?? 0;
   const status = metrics?.capacity_status ?? 'LOW';
@@ -39,7 +47,14 @@ export default function CrowdDensityPage({ metrics, isConnected, capacity }) {
         </div>
 
         {/* 3x3 Sector Spatial Heatmap */}
-        <ZoneGridMap metrics={metrics} isConnected={isConnected} />
+        <ZoneGridMap 
+          metrics={metrics} 
+          isConnected={isConnected} 
+          selectedSource={selectedSource}
+          cameraConfigs={cameraConfigs}
+          onUpdateDivisionName={onUpdateDivisionName}
+          onResetDivisions={onResetDivisions}
+        />
       </div>
     </div>
   );

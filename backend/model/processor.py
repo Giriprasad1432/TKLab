@@ -324,6 +324,12 @@ class CrowdAnalyzer:
                 cv2.line(frame, (i * zone_w, 0), (i * zone_w, frame_height), (90, 90, 90), 1, cv2.LINE_AA)
                 cv2.line(frame, (0, i * zone_h), (frame_width, i * zone_h), (90, 90, 90), 1, cv2.LINE_AA)
             
+            # Subtle sector indicators (Z1..Z9) in sector top-left corners
+            for r in range(3):
+                for c_idx in range(3):
+                    z_num = r * 3 + c_idx + 1
+                    cv2.putText(frame, f"Z{z_num}", (c_idx * zone_w + 10, r * zone_h + 22), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (100, 115, 130), 1, cv2.LINE_AA)
+            
             # Highlight isolated cluster zone if detected
             if isolated_cluster:
                 try:

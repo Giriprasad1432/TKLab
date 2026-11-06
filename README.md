@@ -156,41 +156,82 @@ ws://localhost:8000/ws/analyze?capacity=100&loop=true
 
 ---
 
-## 5. Quickstart Guide
+## 5. Quickstart & One-Click Launch
 
-### 1. Backend Setup
+### One-Click Desktop & Mobile App Launcher (Windows)
+Double-click `Run-TKLab-App.bat` in the root folder, or run:
 ```bash
-# Navigate to backend
+python launch_app.py
+```
+This automatically:
+1. Starts the FastAPI YOLOv11 backend on `0.0.0.0:8000` (listening for both Desktop and Mobile).
+2. Starts the React Dashboard on `0.0.0.0:5173`.
+3. Opens the standalone Desktop Application window (borderless, full control-center mode).
+4. Prints the local Network URL (e.g. `http://192.168.1.50:5173`) for mobile phone connections.
+
+---
+
+### Manual Setup
+
+#### 1. Backend Setup
+```bash
 cd backend
-
-# Activate virtual environment
-..\.venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run FastAPI backend
-python -m uvicorn main:app --host 127.0.0.1 --port 8000
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 2. Frontend Setup
+#### 2. Frontend Setup
 ```bash
-# Navigate to frontend
 cd frontend
-
-# Install node dependencies
 npm install
-
-# Start Vite dashboard
 npm run dev
-# Open http://localhost:5173
 ```
 
-### 3. Verification & Benchmark
+---
+
+## 6. Mobile Application (No Android Studio Required)
+
+The platform features a **Universal Client Architecture** supporting Desktop control rooms and Mobile handhelds simultaneously:
+
+1. **Connect to Same Wi-Fi:** Ensure your smartphone and PC are on the same Wi-Fi network.
+2. **Launch App:** Run `Run-TKLab-App.bat` on your PC.
+3. **Open on Phone:** On your phone's browser, open `http://<YOUR_PC_IP>:5173` (e.g., `http://192.168.1.50:5173`).
+4. **Install App:** Tap **"Add to Home Screen"** or **"Install app"** in the browser menu.
+5. **Mobile Features:**
+   - 📱 **Bottom Tab Navigation Bar** (`Monitor`, `Camera`, `GIS Map`, `Alerts`, `Config`).
+   - ⚡ **Live WebSocket Telemetry & Video:** Real-time crowd counts and frame streams.
+   - 📳 **Haptic Vibration:** Tactile vibration alert on severe stampede risk.
+
+---
+
+## 7. Camera Views & 9-Division Directional Grid
+
+Rather than enforcing rigid venue landmarks (like "Plaza" or "Exit") on every video feed, TKLab divides any camera frame into pure optical **directional sectors**:
+
+| Zone | Sector Label | Location in Video Stream |
+| :---: | :--- | :--- |
+| **Z1** | **NW (Top-Left)** | Upper-left / Far background left |
+| **Z2** | **North (Top-Center)** | Upper-center / Deep inflow / Far-field |
+| **Z3** | **NE (Top-Right)** | Upper-right / Far background right |
+| **Z4** | **West (Mid-Left)** | Lateral left mid-ground |
+| **Z5** | **Center (Mid-Field)** | Central focal point |
+| **Z6** | **East (Mid-Right)** | Lateral right mid-ground |
+| **Z7** | **SW (Bottom-Left)** | Near-left foreground |
+| **Z8** | **South (Foreground)** | Foreground center / Bottom edge |
+| **Z9** | **SE (Bottom-Right)** | Near-right foreground |
+
+Operators can customize division names per camera view or switch between **Compass Directional**, **Perspective Depth**, and **Venue Landmarks** presets in the dashboard.
+
+---
+
+## 8. Verification & Benchmarking
+
 ```bash
-# Verify motion clusters and predictive surges
+# 1. Verify batch risk engine analysis
+python backend/test_risk_engine.py
+
+# 2. Verify motion clusters, collective velocity, and predictive surges
 python backend/test/test_motion_clusters.py
 
-# Verify live WebSocket telemetry
+# 3. Test live WebSocket telemetry stream
 python backend/test_ws_req.py
 ```

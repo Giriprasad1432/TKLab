@@ -1,12 +1,17 @@
 import React from 'react';
 import { Users, AlertTriangle, ShieldCheck, Gauge, Activity } from 'lucide-react';
+import { getCameraConfig } from '../../config/cameraZones';
 
-export default function TopMetrics({ metrics, capacity, isConnected }) {
+export default function TopMetrics({ metrics, capacity, isConnected, selectedSource = 'crowd.mp4', cameraConfigs = {} }) {
   const peopleCount = metrics?.people_count ?? 0;
   const occupancy = metrics?.occupancy ?? 0;
   const riskScore = metrics?.risk_score ?? 0;
   const riskLevel = metrics?.risk_level ?? 'SAFE';
   const capacityStatus = metrics?.capacity_status ?? 'LOW';
+
+  const currentConfig = getCameraConfig(cameraConfigs, selectedSource);
+  const maxZoneNum = parseInt((metrics?.max_zone_id || 'zone_1').replace('zone_', ''), 10) || 1;
+  const maxZoneName = currentConfig.divisions?.[maxZoneNum] || `Zone ${maxZoneNum}`;
 
   // Count high risk zones (> 3 people or > 30% of max)
   const zoneDensity = metrics?.zone_density || {};
@@ -83,8 +88,8 @@ export default function TopMetrics({ metrics, capacity, isConnected }) {
           <div className={`metric-value font-mono ${highRiskZones > 0 ? 'text-warning' : ''}`}>
             {isConnected ? `${highRiskZones} / 9` : '---'}
           </div>
-          <div className="metric-sub text-muted">
-            Peak Zone: <span className="font-mono text-secondary">{metrics?.max_zone_people ?? 0} occupants</span> ({metrics?.max_zone_percentage ?? 0}%)
+          <div className="metric-sub text-muted" title={`Peak sector: ${maxZoneName}`}>
+            Peak: <span className="font-mono text-secondary">Z{maxZoneNum}: {maxZoneName}</span> ({metrics?.max_zone_people ?? 0} ppl)
           </div>
         </div>
         <div className="metric-progress-bar">

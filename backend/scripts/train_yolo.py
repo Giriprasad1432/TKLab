@@ -4,7 +4,7 @@ from pathlib import Path
 from ultralytics import YOLO
 
 def train_yolo(
-    yaml_config=r"c:\Users\girib\Desktop\Giri\TKLab\backend\dataset_mot20\mot20.yaml",
+    yaml_config=None,
     base_model="yolo11n.pt",
     epochs=15,
     batch=8,
@@ -16,6 +16,8 @@ def train_yolo(
     Saves trained weights to backend/yolo11n_crowd.pt
     """
     backend_root = Path(__file__).resolve().parent.parent
+    if yaml_config is None:
+        yaml_config = str(backend_root / "dataset_mot20" / "mot20.yaml")
     base_model_path = backend_root / base_model
 
     print("==================================================")

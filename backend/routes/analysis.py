@@ -84,6 +84,54 @@ VIDEO_TITLES = {
     "mot20_crowd.mp4": "MOT20 Benchmark Extreme Crowd (mot20_crowd.mp4)"
 }
 
+CAMERA_ZONE_METADATA = {
+    "crowd.mp4": {
+        "camera_name": "Camera 01 — Main Entrance Flow",
+        "facility_zone": "Main Inflow & Turnstiles",
+        "divisions": {
+            1: "NW (Top-Left)", 2: "North (Far-Center)", 3: "NE (Top-Right)",
+            4: "West (Mid-Left)", 5: "Center (Mid-Field)", 6: "East (Mid-Right)",
+            7: "SW (Bottom-Left)", 8: "South (Foreground)", 9: "SE (Bottom-Right)"
+        }
+    },
+    "crowd2.mp4": {
+        "camera_name": "Camera 02 — High Density Concourse",
+        "facility_zone": "Assembly Area",
+        "divisions": {
+            1: "NW (Top-Left)", 2: "North (Far-Center)", 3: "NE (Top-Right)",
+            4: "West (Mid-Left)", 5: "Center (Mid-Field)", 6: "East (Mid-Right)",
+            7: "SW (Bottom-Left)", 8: "South (Foreground)", 9: "SE (Bottom-Right)"
+        }
+    },
+    "crowd3.mp4": {
+        "camera_name": "Camera 03 — Rapid Motion & Commotion",
+        "facility_zone": "Junction Passage",
+        "divisions": {
+            1: "NW (Top-Left)", 2: "North (Far-Center)", 3: "NE (Top-Right)",
+            4: "West (Mid-Left)", 5: "Center (Mid-Field)", 6: "East (Mid-Right)",
+            7: "SW (Bottom-Left)", 8: "South (Foreground)", 9: "SE (Bottom-Right)"
+        }
+    },
+    "mot20_crowd.mp4": {
+        "camera_name": "Camera 04 — MOT20 Extreme Crowd",
+        "facility_zone": "Transit Concourse",
+        "divisions": {
+            1: "NW (Top-Left)", 2: "North (Far-Center)", 3: "NE (Top-Right)",
+            4: "West (Mid-Left)", 5: "Center (Mid-Field)", 6: "East (Mid-Right)",
+            7: "SW (Bottom-Left)", 8: "South (Foreground)", 9: "SE (Bottom-Right)"
+        }
+    },
+    "webcam": {
+        "camera_name": "Camera 00 — Local Live Webcam",
+        "facility_zone": "Local Room / Station",
+        "divisions": {
+            1: "NW (Top-Left)", 2: "North (Top-Center)", 3: "NE (Top-Right)",
+            4: "West (Mid-Left)", 5: "Center (Mid-Field)", 6: "East (Mid-Right)",
+            7: "SW (Bottom-Left)", 8: "South (Bottom-Center)", 9: "SE (Bottom-Right)"
+        }
+    }
+}
+
 def get_test_directories() -> List[Path]:
     return [
         Path(__file__).resolve().parent.parent / "test",
@@ -92,12 +140,16 @@ def get_test_directories() -> List[Path]:
     ]
 
 def get_available_sources() -> List[Dict]:
+    webcam_meta = CAMERA_ZONE_METADATA.get("webcam", {})
     sources = [
         {
             "id": "webcam",
             "name": "Live Webcam / Camera (Device 0)",
             "type": "live",
             "filename": "webcam",
+            "camera_name": webcam_meta.get("camera_name", "Camera 00 — Local Live Webcam"),
+            "facility_zone": webcam_meta.get("facility_zone", "Monitoring Lab / Camera 0"),
+            "divisions": webcam_meta.get("divisions", {}),
             "description": "Real-time webcam feed with live YOLO crowd detection"
         }
     ]
@@ -108,12 +160,16 @@ def get_available_sources() -> List[Dict]:
                 if f.name not in seen:
                     seen.add(f.name)
                     size_mb = round(f.stat().st_size / (1024 * 1024), 1)
+                    cam_meta = CAMERA_ZONE_METADATA.get(f.name, {})
                     sources.append({
                         "id": f.name,
                         "name": VIDEO_TITLES.get(f.name, f.name),
                         "type": "video",
                         "filename": f.name,
                         "size_mb": size_mb,
+                        "camera_name": cam_meta.get("camera_name", f"Camera Feed — {f.name}"),
+                        "facility_zone": cam_meta.get("facility_zone", "Monitored Sector"),
+                        "divisions": cam_meta.get("divisions", {}),
                         "description": f"Pre-recorded test footage ({size_mb} MB)"
                     })
     return sources

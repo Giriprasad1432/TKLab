@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, AlertOctagon, AlertTriangle, Info, Check, Trash2 } from 'lucide-react';
+import { getCameraConfig } from '../../config/cameraZones';
 
-export default function AlertPanel({ metrics, isConnected, soundEnabled }) {
+export default function AlertPanel({ metrics, isConnected, soundEnabled, selectedSource = 'crowd.mp4', cameraConfigs = {} }) {
   const [alerts, setAlerts] = useState([
     {
       id: 1,
@@ -74,13 +75,15 @@ export default function AlertPanel({ metrics, isConnected, soundEnabled }) {
 
     if (metrics.predicted_density_surges && metrics.predicted_density_surges.length > 0) {
       const surge = metrics.predicted_density_surges[0];
-      const targetZone = (surge.target_zone || '').replace('_', ' ').toUpperCase();
+      const targetNum = parseInt((surge.target_zone || 'zone_1').replace('zone_', ''), 10) || 1;
+      const currentConfig = getCameraConfig(cameraConfigs, selectedSource);
+      const targetZoneName = currentConfig.divisions?.[targetNum] || `Zone ${targetNum}`;
       newAlerts.push({
         id: Date.now() + 6,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         level: 'WARNING',
         title: 'Predictive Bottleneck Surge',
-        message: `Crowd pack of ${surge.people_count} marching towards ${targetZone} (ETA ~${surge.eta_seconds}s).`,
+        message: `Crowd pack of ${surge.people_count} marching towards ${targetZoneName} (Zone ${targetNum}, ETA ~${surge.eta_seconds}s).`,
         acknowledged: false
       });
     }

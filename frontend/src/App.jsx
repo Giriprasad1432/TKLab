@@ -20,6 +20,9 @@ import ReportsPage from './components/pages/ReportsPage';
 import SettingsPage from './components/pages/SettingsPage';
 
 import './App.css';
+import MobileNav from './components/layout/MobileNav';
+import { loadCameraConfigs, updateDivisionNameInConfigs, resetCameraDivisionsInConfigs } from './config/cameraZones';
+import { getApiBaseUrl, getWebSocketBaseUrl, saveBackendHost, getSavedBackendHost } from './config/serverConfig';
 
 const DEFAULT_SOURCES = [
   { id: 'webcam', name: 'Live Webcam / Camera (Device 0)', type: 'live', description: 'Real-time webcam feed with live YOLO crowd detection' },
@@ -42,12 +45,31 @@ function App() {
   const [selectedSource, setSelectedSource] = useState('crowd.mp4');
   const [availableSources, setAvailableSources] = useState(DEFAULT_SOURCES);
   const [streamError, setStreamError] = useState(null);
+  const [cameraConfigs, setCameraConfigs] = useState(loadCameraConfigs);
+  const [backendHost, setBackendHost] = useState(getSavedBackendHost);
 
   const wsRef = useRef(null);
 
+  const handleUpdateBackendHost = (newHost) => {
+    const saved = saveBackendHost(newHost);
+    setBackendHost(saved);
+    if (isConnected) {
+      disconnectWebSocket();
+      setTimeout(() => connectWebSocket(), 200);
+    }
+  };
+
+  const handleUpdateDivisionName = (sourceId, zoneNum, newName) => {
+    setCameraConfigs(prev => updateDivisionNameInConfigs(prev, sourceId, zoneNum, newName));
+  };
+
+  const handleResetDivisions = (sourceId) => {
+    setCameraConfigs(prev => resetCameraDivisionsInConfigs(prev, sourceId));
+  };
+
   // Fetch available sources from backend on mount
   useEffect(() => {
-    fetch('http://localhost:8000/sources')
+    fetch(`${getApiBaseUrl()}/sources`)
       .then(res => res.json())
       .then(data => {
         if (data?.sources?.length > 0) {
@@ -57,7 +79,7 @@ function App() {
       .catch(err => {
         console.log("Using default fallback video sources:", err);
       });
-  }, []);
+  }, [backendHost]);
 
   const connectWebSocket = (sourceOverride) => {
     if (wsRef.current) {
@@ -74,7 +96,7 @@ function App() {
     setFrameCount(0);
     setStreamError(null);
 
-    const wsUrl = `ws://localhost:8000/ws/analyze?capacity=${capacity}&source=${encodeURIComponent(src)}`;
+    const wsUrl = `${getWebSocketBaseUrl()}/ws/analyze?capacity=${capacity}&source=${encodeURIComponent(src)}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -94,6 +116,11 @@ function App() {
         if (!data.message) {
           setMetrics(data);
           setFrameCount(f => f + 1);
+
+          // Mobile device haptic feedback on stampede panic / critical threat
+          if (data.risk_level === 'CRITICAL' && typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([200, 100, 200]);
+          }
         }
       } catch (err) {
         console.error("Failed to parse WS data:", err);
@@ -157,6 +184,8 @@ function App() {
               metrics={metrics}
               capacity={capacity}
               isConnected={isConnected}
+              selectedSource={selectedSource}
+              cameraConfigs={cameraConfigs}
             />
 
             {/* Grid 1: Live Video Feed & Risk Assessment */}
@@ -173,6 +202,7 @@ function App() {
                   capacity={capacity}
                   onUpdateCapacity={handleUpdateCapacity}
                   streamError={streamError}
+                  cameraConfigs={cameraConfigs}
                 />
 
                 <RiskOverview
@@ -186,17 +216,25 @@ function App() {
                 <ZoneGridMap
                   metrics={metrics}
                   isConnected={isConnected}
+                  selectedSource={selectedSource}
+                  cameraConfigs={cameraConfigs}
+                  onUpdateDivisionName={handleUpdateDivisionName}
+                  onResetDivisions={handleResetDivisions}
                 />
 
                 <AlertPanel
                   metrics={metrics}
                   isConnected={isConnected}
                   soundEnabled={soundEnabled}
+                  selectedSource={selectedSource}
+                  cameraConfigs={cameraConfigs}
                 />
 
                 <ActivityFeed
                   metrics={metrics}
                   isConnected={isConnected}
+                  selectedSource={selectedSource}
+                  cameraConfigs={cameraConfigs}
                 />
               </div>
             </div>
@@ -216,6 +254,7 @@ function App() {
             onSelectSource={handleSelectSource}
             availableSources={availableSources}
             streamError={streamError}
+            cameraConfigs={cameraConfigs}
           />
         );
 
@@ -225,6 +264,10 @@ function App() {
             metrics={metrics}
             isConnected={isConnected}
             capacity={capacity}
+            selectedSource={selectedSource}
+            cameraConfigs={cameraConfigs}
+            onUpdateDivisionName={handleUpdateDivisionName}
+            onResetDivisions={handleResetDivisions}
           />
         );
 
@@ -241,6 +284,9 @@ function App() {
           <MapZonesPage
             metrics={metrics}
             isConnected={isConnected}
+            selectedSource={selectedSource}
+            onSelectSource={handleSelectSource}
+            cameraConfigs={cameraConfigs}
           />
         );
 
@@ -254,13 +300,20 @@ function App() {
         );
 
       case 'incidents':
-        return <IncidentsPage />;
+        return (
+          <IncidentsPage 
+            selectedSource={selectedSource} 
+            cameraConfigs={cameraConfigs} 
+          />
+        );
 
       case 'analytics':
         return (
           <AnalyticsPage
             metrics={metrics}
             isConnected={isConnected}
+            selectedSource={selectedSource}
+            cameraConfigs={cameraConfigs}
           />
         );
 
@@ -270,6 +323,7 @@ function App() {
             metrics={metrics}
             capacity={capacity}
             selectedSource={selectedSource}
+            cameraConfigs={cameraConfigs}
           />
         );
 
@@ -284,6 +338,11 @@ function App() {
             selectedSource={selectedSource}
             onSelectSource={handleSelectSource}
             availableSources={availableSources}
+            cameraConfigs={cameraConfigs}
+            onUpdateDivisionName={handleUpdateDivisionName}
+            onResetDivisions={handleResetDivisions}
+            backendHost={backendHost}
+            onUpdateBackendHost={handleUpdateBackendHost}
           />
         );
 
@@ -311,7 +370,7 @@ function App() {
 
       {/* Main Layout Body */}
       <div className="ctrl-app-body">
-        {/* Left Navigation Sidebar */}
+        {/* Left Navigation Sidebar (Desktop) */}
         <Sidebar
           activePage={activePage}
           setActivePage={setActivePage}
@@ -325,6 +384,14 @@ function App() {
           {renderActivePage()}
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar (Handheld Smartphones & Tablets) */}
+      <MobileNav
+        activePage={activePage}
+        setActivePage={setActivePage}
+        isConnected={isConnected}
+        alertCount={metrics?.risk_level === 'CRITICAL' ? 1 : 0}
+      />
     </div>
   );
 }

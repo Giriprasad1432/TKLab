@@ -1,9 +1,10 @@
 import requests
 import json
 import time
+from pathlib import Path
 
 url = "http://localhost:8000/analyze"
-video_path = "c:/Users/girib/Desktop/Giri/TKLab/backend/test/crowd.mp4"
+video_path = Path(__file__).resolve().parent / "test" / "crowd.mp4"
 
 print(f"Testing POST /analyze with {video_path}...")
 start = time.time()

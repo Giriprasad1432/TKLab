@@ -1,40 +1,43 @@
 import React, { useState } from 'react';
 import { ClipboardList, Plus, Filter, ShieldAlert, CheckCircle2, Clock, UserCheck } from 'lucide-react';
+import { getCameraConfig } from '../../config/cameraZones';
 
-export default function IncidentsPage() {
+export default function IncidentsPage({ selectedSource = 'crowd.mp4', cameraConfigs = {} }) {
+  const currentConfig = getCameraConfig(cameraConfigs, selectedSource);
+  const divisions = currentConfig.divisions || {};
   const [filter, setFilter] = useState('ALL');
   const [incidents, setIncidents] = useState([
     {
       id: 'INC-9041',
-      zone: 'Zone 1 (NW Gate)',
+      zone: 'Zone 1 (NW Sector)',
       time: '10:42:15 AM',
       severity: 'CRITICAL',
-      description: 'Main gate entry bottlenecking caused crowd buildup near security scanners.',
+      description: 'Main gate entry bottlenecking caused crowd buildup near scanners.',
       team: 'Alpha Response Squad',
       status: 'INVESTIGATING'
     },
     {
       id: 'INC-9040',
-      zone: 'Zone 5 (Central Plaza)',
+      zone: 'Zone 5 (Center Sector)',
       time: '10:30:00 AM',
       severity: 'HIGH',
-      description: 'Sudden velocity surge detected during main stage exit transition.',
+      description: 'Sudden velocity surge detected during exit transition.',
       team: 'Bravo Security',
       status: 'RESPONDING'
     },
     {
       id: 'INC-9039',
-      zone: 'Zone 8 (South Exit)',
+      zone: 'Zone 8 (South Sector)',
       time: '10:15:10 AM',
       severity: 'MEDIUM',
-      description: 'Minor obstacle in corridor cleared. Flow returned to baseline.',
+      description: 'Minor obstacle cleared. Flow returned to baseline.',
       team: 'Medical Unit 01',
       status: 'RESOLVED'
     }
   ]);
 
   const [showModal, setShowModal] = useState(false);
-  const [newZone, setNewZone] = useState('Zone 1 (NW Gate)');
+  const [newZone, setNewZone] = useState('Zone 1: NW (Top-Left)');
   const [newDesc, setNewDesc] = useState('');
   const [newSeverity, setNewSeverity] = useState('HIGH');
 
@@ -164,13 +167,13 @@ export default function IncidentsPage() {
             </div>
             <form onSubmit={handleCreateIncident} className="modal-form font-mono">
               <div className="form-group">
-                <label>Zone Location:</label>
+                <label>Zone Location ({currentConfig.cameraName}):</label>
                 <select className="ctrl-input w-full" value={newZone} onChange={e => setNewZone(e.target.value)}>
-                  <option>Zone 1 (NW Gate)</option>
-                  <option>Zone 2 (North Concourse)</option>
-                  <option>Zone 3 (NE Gate)</option>
-                  <option>Zone 5 (Central Plaza)</option>
-                  <option>Zone 8 (South Exit)</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((zNum) => (
+                    <option key={zNum} value={`Zone ${zNum}: ${divisions[zNum] || `Zone ${zNum}`}`}>
+                      Zone {zNum}: {divisions[zNum] || `Zone ${zNum}`}
+                    </option>
+                  ))}
                 </select>
               </div>
 

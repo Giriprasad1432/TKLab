@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Video, Radio, Maximize2, Camera, ShieldAlert, Cpu, AlertTriangle, Play, RefreshCw } from 'lucide-react';
+import { Video, Radio, Maximize2, Camera, ShieldAlert, Cpu, AlertTriangle, Play, RefreshCw, Grid } from 'lucide-react';
+import { getCameraConfig } from '../../config/cameraZones';
 
 export default function LiveCameraFeed({ 
   metrics, 
@@ -11,9 +12,11 @@ export default function LiveCameraFeed({
   availableSources = [],
   capacity,
   onUpdateCapacity,
-  streamError 
+  streamError,
+  cameraConfigs = {}
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showGridOverlay, setShowGridOverlay] = useState(true);
   const containerRef = useRef(null);
 
   const toggleFullscreen = () => {
@@ -36,6 +39,8 @@ export default function LiveCameraFeed({
   };
 
   const isLiveCam = selectedSource === 'webcam' || metrics?.is_live;
+  const currentConfig = getCameraConfig(cameraConfigs, selectedSource);
+  const divisionNames = currentConfig.divisions || {};
 
   const defaultSourcesList = [
     { id: 'webcam', name: '📹 Live Webcam', type: 'live' },
@@ -53,7 +58,7 @@ export default function LiveCameraFeed({
         <div className="ctrl-card-title">
           <Video size={18} className={isLiveCam ? "text-critical" : "text-primary"} />
           <span>
-            {isLiveCam ? "LIVE WEBCAM FEED — COMPUTER CAMERA 0" : `BENCHMARK FOOTAGE — ${selectedSource.toUpperCase()}`}
+            {currentConfig.cameraName.toUpperCase()}
           </span>
           {isConnected && (
             <span className={isLiveCam ? "live-pill status-pill-critical" : "live-pill"}>
@@ -63,9 +68,22 @@ export default function LiveCameraFeed({
         </div>
 
         <div className="feed-header-actions">
+          {/* Toggle 3x3 Division Names HUD on Video Feed */}
+          <button 
+            type="button"
+            className={`ctrl-btn ${showGridOverlay ? 'ctrl-btn-primary' : 'ctrl-btn-outline'} feed-action-btn`}
+            onClick={() => setShowGridOverlay(!showGridOverlay)}
+            title="Toggle 3x3 Division Names Grid Overlay on Camera View"
+          >
+            <Grid size={14} />
+            <span className="font-mono" style={{ fontSize: '11px' }}>
+              {showGridOverlay ? 'DIVISIONS ON' : 'DIVISIONS OFF'}
+            </span>
+          </button>
+
           <div className="feed-badge font-mono text-muted">
             <Cpu size={13} />
-            <span>YOLOv11 Detector</span>
+            <span>YOLOv11</span>
           </div>
 
           <div className="feed-badge font-mono text-primary">
@@ -96,19 +114,20 @@ export default function LiveCameraFeed({
       <div className="feed-source-bar font-mono">
         <span className="source-bar-title">
           <Camera size={13} />
-          <span>FEED SOURCE:</span>
+          <span>CAMERA VIEW:</span>
         </span>
         <div className="source-pills">
           {sourceItems.map((s) => {
             const isItemLive = s.id === 'webcam' || s.type === 'live';
             const isActive = selectedSource === s.id;
+            const itemConfig = getCameraConfig(cameraConfigs, s.id);
             return (
               <button
                 key={s.id}
                 type="button"
                 className={`source-pill ${isActive ? (isItemLive ? 'active-live' : 'active') : ''}`}
                 onClick={() => onSelectSource && onSelectSource(s.id)}
-                title={s.description || s.name}
+                title={`${itemConfig.cameraName} — Assigned to ${itemConfig.facilityZone}`}
               >
                 <span>{s.name}</span>
                 {isActive && isConnected && (
@@ -149,11 +168,40 @@ export default function LiveCameraFeed({
               className="live-video-frame"
             />
 
+            {/* Interactive 3x3 Division Names Grid Overlay on the Video */}
+            {showGridOverlay && (
+              <div className="stream-division-overlay font-mono">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
+                  const count = metrics?.zone_density?.[`zone_${num}`] || 0;
+                  const name = divisionNames[num] || `Zone ${num}`;
+                  const isHigh = count >= 4;
+                  return (
+                    <div 
+                      key={num} 
+                      className={`overlay-zone-cell ${isHigh ? 'zone-cell-alert' : ''}`}
+                    >
+                      <div className="overlay-zone-tag">
+                        <span className="overlay-zone-id">Z{num}</span>
+                        <span className="overlay-zone-name">{name}</span>
+                      </div>
+                      {count > 0 && (
+                        <div className={`overlay-zone-count ${isHigh ? 'text-critical' : 'text-primary'}`}>
+                          {count} {count === 1 ? 'ppl' : 'ppl'}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Video Overlay Info Bar */}
             <div className="stream-overlay-top">
               <div className="stream-location font-mono">
                 <Radio size={12} className={isLiveCam ? "text-critical pulse-active" : "text-primary pulse-active"} />
-                <span>{isLiveCam ? "LOCAL CAMERA [DEVICE 0] — LIVE MONITOR" : `PRELOADED REPLAY: ${selectedSource}`}</span>
+                <span>
+                  {currentConfig.cameraName} — <strong className="text-accent-cyan">[{currentConfig.facilityZone}]</strong>
+                </span>
               </div>
               <div className="stream-stats font-mono">
                 <span>FPS: {metrics.fps || 30}</span> | <span>RES: 1280x720</span>

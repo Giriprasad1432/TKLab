@@ -5,7 +5,7 @@ from pathlib import Path
 
 def convert_mot20_to_yolo(
     mot20_root=r"C:\Users\girib\Videos\MOT20\MOT20",
-    output_root=r"C:\Users\girib\Desktop\Giri\TKLab\backend\dataset_mot20",
+    output_root=None,
     max_frames_per_seq=150,  # Samples frames for fast balanced training
     val_seqs=("MOT20-01",),   # Reserve sequence 01 for validation
 ):
@@ -13,6 +13,8 @@ def convert_mot20_to_yolo(
     Converts MOT20 pedestrian tracking dataset to YOLO11 detection format.
     Filters for pedestrian class (class 1 in MOT20) and generates YOLO normalized labels.
     """
+    if output_root is None:
+        output_root = str(Path(__file__).resolve().parent.parent / "dataset_mot20")
     mot20_train = os.path.join(mot20_root, "train")
     if not os.path.exists(mot20_train):
         print(f"Error: MOT20 train directory not found at {mot20_train}")

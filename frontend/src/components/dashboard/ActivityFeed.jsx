@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Clock, Shield, MapPin, TrendingUp } from 'lucide-react';
+import { getCameraConfig } from '../../config/cameraZones';
 
-export default function ActivityFeed({ metrics, isConnected }) {
+export default function ActivityFeed({ metrics, isConnected, selectedSource = 'crowd.mp4', cameraConfigs = {} }) {
   const [logs, setLogs] = useState([
     {
       id: 1,
@@ -17,12 +18,15 @@ export default function ActivityFeed({ metrics, isConnected }) {
 
     // Log significant changes
     if (metrics.max_zone_people > 0) {
+      const currentConfig = getCameraConfig(cameraConfigs, selectedSource);
+      const zNum = parseInt((metrics.max_zone_id || 'zone_1').replace('zone_', ''), 10) || 1;
+      const zName = currentConfig.divisions?.[zNum] || `Zone ${zNum}`;
       const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const newLog = {
         id: Date.now(),
         time: now,
         event: `Sector peak count: ${metrics.max_zone_people} occupants (${metrics.max_zone_percentage}%)`,
-        zone: `Zone ${metrics.worst_zone_density ? Object.keys(metrics.worst_zone_density).reduce((a, b) => metrics.worst_zone_density[a] > metrics.worst_zone_density[b] ? a : b, '1').replace('zone_', '') : '1'}`,
+        zone: `Z${zNum}: ${zName}`,
         severity: metrics.risk_level
       };
 
@@ -31,7 +35,7 @@ export default function ActivityFeed({ metrics, isConnected }) {
         return [newLog, ...prev].slice(0, 20);
       });
     }
-  }, [metrics, isConnected]);
+  }, [metrics, isConnected, selectedSource, cameraConfigs]);
 
   return (
     <div className="ctrl-card activity-feed-card">

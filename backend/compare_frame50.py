@@ -1,9 +1,11 @@
 import cv2
 import time
+from pathlib import Path
 from ultralytics import YOLO
 
 def main():
-    video_path = "test/crowd.mp4"
+    backend_dir = Path(__file__).resolve().parent
+    video_path = str(backend_dir / "test" / "crowd.mp4")
     cap = cv2.VideoCapture(video_path)
     
     if not cap.isOpened():
@@ -19,7 +21,8 @@ def main():
         
     cap.release()
 
-    model = YOLO("yolo11n.pt")
+    model_path = str(backend_dir / "yolo11n.pt")
+    model = YOLO(model_path if Path(model_path).exists() else "yolo11n.pt")
     print("--- BEFORE: Default parameters (imgsz=640, conf=default) ---")
     
     start = time.time()

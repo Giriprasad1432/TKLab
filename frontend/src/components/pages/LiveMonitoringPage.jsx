@@ -12,7 +12,8 @@ export default function LiveMonitoringPage({
   selectedSource,
   onSelectSource,
   availableSources,
-  streamError
+  streamError,
+  cameraConfigs
 }) {
   const [uploadFile, setUploadFile] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -101,6 +102,7 @@ export default function LiveMonitoringPage({
             capacity={capacity}
             onUpdateCapacity={onUpdateCapacity}
             streamError={streamError}
+            cameraConfigs={cameraConfigs}
           />
         </div>
 

@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
-import { Grid, Eye, AlertCircle, CheckCircle2, ArrowUpRight } from 'lucide-react';
+import { Grid, Eye, AlertCircle, CheckCircle2, ArrowUpRight, Sliders, RotateCcw, Check, X, Video } from 'lucide-react';
+import { getCameraConfig } from '../../config/cameraZones';
 
-export default function ZoneGridMap({ metrics, isConnected }) {
+export default function ZoneGridMap({ 
+  metrics, 
+  isConnected, 
+  selectedSource = 'crowd.mp4',
+  cameraConfigs = {},
+  onUpdateDivisionName,
+  onResetDivisions 
+}) {
   const [selectedZone, setSelectedZone] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editNames, setEditNames] = useState({});
 
   const zoneDensity = metrics?.zone_density || {
     zone_1: 0, zone_2: 0, zone_3: 0,
@@ -12,11 +22,30 @@ export default function ZoneGridMap({ metrics, isConnected }) {
 
   const maxZoneCount = metrics?.max_zone_people || 1;
 
-  // Sector labels (spatial 3x3 grid)
-  const zoneNames = {
-    1: 'NW Gate (1)', 2: 'North Concourse (2)', 3: 'NE Gate (3)',
-    4: 'West Corridor (4)', 5: 'Central Plaza (5)', 6: 'East Corridor (6)',
-    7: 'SW Plaza (7)', 8: 'South Exit (8)', 9: 'SE Exit (9)'
+  // Resolve dynamic division names for the currently selected camera view
+  const currentConfig = getCameraConfig(cameraConfigs, selectedSource);
+  const zoneNames = currentConfig.divisions || {};
+
+  const handleStartEdit = () => {
+    setEditNames({ ...zoneNames });
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = (e) => {
+    e.preventDefault();
+    if (onUpdateDivisionName) {
+      Object.keys(editNames).forEach((zNum) => {
+        onUpdateDivisionName(selectedSource, zNum, editNames[zNum]);
+      });
+    }
+    setIsEditing(false);
+  };
+
+  const handleReset = () => {
+    if (onResetDivisions) {
+      onResetDivisions(selectedSource);
+    }
+    setIsEditing(false);
   };
 
   const getHeatStyle = (count) => {
@@ -46,6 +75,12 @@ export default function ZoneGridMap({ metrics, isConnected }) {
     };
   };
 
+  const mostCongestedKey = Object.keys(zoneDensity).reduce(
+    (a, b) => (zoneDensity[a] > zoneDensity[b] ? a : b),
+    'zone_1'
+  );
+  const mostCongestedNum = parseInt(mostCongestedKey.replace('zone_', ''), 10) || 1;
+
   return (
     <div className="ctrl-card zone-grid-card">
       <div className="ctrl-card-header">
@@ -54,12 +89,120 @@ export default function ZoneGridMap({ metrics, isConnected }) {
           <span>CROWD DISTRIBUTION MATRIX (3x3 SECTORS)</span>
         </div>
 
-        <div className="matrix-legend font-mono">
-          <span className="legend-item"><span className="legend-dot bg-safe"></span> SAFE</span>
-          <span className="legend-item"><span className="legend-dot bg-warning"></span> MODERATE</span>
-          <span className="legend-item"><span className="legend-dot bg-critical"></span> HIGH RISK</span>
+        <div className="feed-header-actions">
+          <button 
+            type="button"
+            className="ctrl-btn ctrl-btn-outline edit-zones-btn font-mono"
+            onClick={handleStartEdit}
+            title="Customize 9 Division Names for this Camera View"
+          >
+            <Sliders size={13} />
+            <span>CUSTOMIZE NAMES</span>
+          </button>
         </div>
       </div>
+
+      {/* Active Camera View & Facility Area Sub-banner */}
+      <div className="camera-zone-subbar font-mono">
+        <span className="camera-subbar-pill">
+          <Video size={12} className="text-primary" />
+          <span className="text-muted">VIEW:</span> 
+          <strong>{currentConfig.cameraName}</strong>
+        </span>
+        <span className="camera-subbar-pill">
+          <span className="text-muted">SECTOR:</span> 
+          <strong className="text-accent-cyan">{currentConfig.facilityZone}</strong>
+        </span>
+      </div>
+
+      {/* Inline Division Names Editor Modal / Drawer */}
+      {isEditing && (
+        <div className="division-editor-card font-mono">
+          <div className="editor-header">
+            <span className="editor-title">
+              EDIT 9 DIVISION NAMES — {currentConfig.cameraName}
+            </span>
+            <button 
+              type="button" 
+              className="close-detail-btn" 
+              onClick={() => setIsEditing(false)}
+            >
+              ×
+            </button>
+          </div>
+          <p className="editor-desc text-muted">
+            Customize the sector division names specifically for this camera view. Standard directional compass sectors (NW, North, NE, West, Center, East, SW, South, SE) match any camera video accurately.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-1.5 mb-3 font-mono">
+            <span className="text-xs text-muted">PRESETS:</span>
+            <button
+              type="button"
+              className="ctrl-btn ctrl-btn-outline text-xs py-0.5 px-2"
+              onClick={() => setEditNames({
+                1: 'NW (Top-Left)', 2: 'North (Top-Center)', 3: 'NE (Top-Right)',
+                4: 'West (Mid-Left)', 5: 'Center (Mid-Field)', 6: 'East (Mid-Right)',
+                7: 'SW (Bottom-Left)', 8: 'South (Foreground)', 9: 'SE (Bottom-Right)'
+              })}
+            >
+              🧭 Compass (NW, N, NE, W, C, E, SW, S, SE)
+            </button>
+            <button
+              type="button"
+              className="ctrl-btn ctrl-btn-outline text-xs py-0.5 px-2"
+              onClick={() => setEditNames({
+                1: 'Far-Left (Back)', 2: 'Far-Center (Back)', 3: 'Far-Right (Back)',
+                4: 'Mid-Left (Mid)', 5: 'Center (Focal)', 6: 'Mid-Right (Mid)',
+                7: 'Near-Left (Front)', 8: 'Near-Center (Front)', 9: 'Near-Right (Front)'
+              })}
+            >
+              📐 Perspective (Far, Mid, Near)
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveEdit}>
+            <div className="editor-3x3-grid">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <div key={num} className="editor-cell">
+                  <label className="editor-cell-label">Zone {num}</label>
+                  <input
+                    type="text"
+                    className="ctrl-input editor-input"
+                    value={editNames[num] || ''}
+                    onChange={(e) => setEditNames({ ...editNames, [num]: e.target.value })}
+                    placeholder={`Division ${num}`}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="editor-actions">
+              <button 
+                type="button" 
+                className="ctrl-btn ctrl-btn-outline" 
+                onClick={handleReset}
+              >
+                <RotateCcw size={13} />
+                <span>Reset to Camera Defaults</span>
+              </button>
+              <div className="editor-actions-right">
+                <button 
+                  type="button" 
+                  className="ctrl-btn ctrl-btn-outline" 
+                  onClick={() => setIsEditing(false)}
+                >
+                  <X size={13} />
+                  <span>Cancel</span>
+                </button>
+                <button type="submit" className="ctrl-btn ctrl-btn-primary">
+                  <Check size={13} />
+                  <span>Save Division Names</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* 3x3 Heatmap Grid */}
       <div className="sector-matrix">
@@ -75,10 +218,11 @@ export default function ZoneGridMap({ metrics, isConnected }) {
               className={`sector-cell ${isSelected ? 'selected' : ''}`}
               style={heatStyle}
               onClick={() => setSelectedZone(zoneNum)}
+              title={`Click to inspect Zone ${zoneNum}: ${zoneNames[zoneNum] || `Zone ${zoneNum}`}`}
             >
               <div className="sector-num font-mono">Z{zoneNum}</div>
               <div className="sector-count font-mono">{isConnected ? count : '-'}</div>
-              <div className="sector-label">{zoneNames[zoneNum]}</div>
+              <div className="sector-label">{zoneNames[zoneNum] || `Zone ${zoneNum}`}</div>
             </div>
           );
         })}
@@ -88,12 +232,15 @@ export default function ZoneGridMap({ metrics, isConnected }) {
       {selectedZone && (
         <div className="zone-detail-banner">
           <div className="detail-header">
-            <span className="detail-title font-mono">SECTOR DETAILS — ZONE {selectedZone}: {zoneNames[selectedZone]}</span>
+            <span className="detail-title font-mono">
+              SECTOR DETAILS — ZONE {selectedZone}: {zoneNames[selectedZone] || `Zone ${selectedZone}`}
+            </span>
             <button className="close-detail-btn" onClick={() => setSelectedZone(null)}>×</button>
           </div>
           <div className="detail-metrics font-mono">
             <div>Current Count: <strong>{zoneDensity[`zone_${selectedZone}`] || 0} occupants</strong></div>
-            <div>Zone Capacity Share: <strong>{metrics?.max_zone_percentage || 0}%</strong></div>
+            <div>Camera View: <strong>{currentConfig.cameraName}</strong></div>
+            <div>Facility Sector: <strong>{currentConfig.facilityZone}</strong></div>
             <div>Status: <span className={(zoneDensity[`zone_${selectedZone}`] || 0) > 4 ? "text-critical" : "text-safe"}>
               {(zoneDensity[`zone_${selectedZone}`] || 0) > 4 ? "CONGESTION ALERT" : "NORMAL FLOW"}
             </span></div>
@@ -103,7 +250,11 @@ export default function ZoneGridMap({ metrics, isConnected }) {
 
       {/* Footer summary */}
       <div className="grid-footer text-muted font-mono">
-        <span>Most Congested Sector: <strong className="text-warning">Zone {Object.keys(zoneDensity).reduce((a, b) => zoneDensity[a] > zoneDensity[b] ? a : b, 'zone_1').replace('zone_', '')}</strong></span>
+        <span>
+          Most Congested Sector: <strong className="text-warning">
+            Z{mostCongestedNum}: {zoneNames[mostCongestedNum] || `Zone ${mostCongestedNum}`}
+          </strong>
+        </span>
         <span>Peak Zone Density: <strong className="text-primary">{metrics?.max_zone_people || 0} occupants</strong></span>
       </div>
     </div>
