@@ -393,12 +393,18 @@ class CrowdAnalyzer:
                     surge_text = f"SURGE -> {c['predicted_zone'].replace('_', ' ').upper()} (~3s)"
                     cv2.putText(frame, surge_text, (bx1 + 5, by2 + 16), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 2, cv2.LINE_AA)
 
-            # Draw Individual Pedestrians (Separated vs Clustered)
+            # Draw Individual Pedestrians (Separated vs Clustered vs Occlusion-Persisted)
             for p in people:
                 pid = p.get("id", -1)
                 in_cluster = p.get("in_cluster", False)
+                persisted = p.get("persisted", False)
                 
-                if in_cluster:
+                if persisted:
+                    # Subtle cyan/sky-blue border for occlusion-persisted tracks
+                    box_color = (255, 215, 0) # Cyan in BGR
+                    thickness = 1
+                    label = f"ID:{pid} [OCCL]" if pid >= 0 else "person"
+                elif in_cluster:
                     # Subtle amber border for persons inside a crowd pack
                     box_color = (0, 165, 255)
                     thickness = 1

@@ -42,6 +42,8 @@ def run_preflight_check():
 
     # 3. Test OpenCV Video Loading & First Frame
     print("\n[3/5] Testing Video Stream Ingestion (OpenCV)...")
+    frame = None
+    w, h = 1920, 1080
     try:
         import cv2
         sample_vid = str(test_dir / "crowd.mp4")

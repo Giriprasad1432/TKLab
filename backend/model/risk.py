@@ -29,6 +29,7 @@ def calculate_risk(
         
     occ_score = int(min(45, occ_score))
     if occ_score > 0:
+        score += occ_score
         reason = (
             f"Critical over-capacity ({int(occupancy)}% of venue capacity)"
             if occupancy >= 100

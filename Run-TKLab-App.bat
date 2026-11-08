@@ -6,10 +6,15 @@ echo ==============================================================
 
 cd /d "%~dp0"
 
-if exist ".venv\Scripts\python.exe" (
-    ".venv\Scripts\python.exe" launch_app.py
-) else (
-    python launch_app.py
+REM Try python with fallback to py launcher or venv
+python launch_app.py
+if %ERRORLEVEL% NEQ 0 (
+    py -3.13 launch_app.py
+    if %ERRORLEVEL% NEQ 0 (
+        if exist ".venv\Scripts\python.exe" (
+            ".venv\Scripts\python.exe" launch_app.py
+        )
+    )
 )
 
 pause

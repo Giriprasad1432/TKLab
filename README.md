@@ -15,11 +15,12 @@
 **TKLab** is an enterprise-grade computer vision platform engineered to monitor high-density crowds, prevent stampedes, forecast pedestrian surges, and detect behavioral anomalies (violent scuffles, sudden panic dispersal) in real time.
 
 ### Core Problems Solved
-1. **Zero-Drop Tracking**: Solves the severe 95% detection drop of standard ByteTrack in dense pedestrian packs by implementing a low-confidence (`conf=0.10`), high-resolution (`1280px`) greedy centroid association tracker (`CrowdTracker`), tracking **75–85 people per frame** consistently.
-2. **Separated Individuals vs. Dense Crowd Packs**: Uses spatial proximity clustering to assign persistent IDs to separated pedestrians while grouping compressed groups ($\ge 3$ persons within adaptive radius) into **Crowd Packs** with normalized density indexing.
-3. **Collective Velocity Vectors & Predictive Flow Surges**: Projects crowd pack movement trajectories 3 seconds into the future, pre-empting bottleneck surges before people enter congested sectors.
-4. **Violent Commotion & Fight Detection**: Analyzes path tortuosity ($\tau$), kinetic acceleration variance, and directional turbulence to detect localized fights and stampede panic.
-5. **Real-Time Control Center**: Sub-100ms bi-directional WebSocket interface delivering dual-mode annotated video feeds and safety telemetry to a React dashboard.
+1. **Dual-Pass Sliced Dense Crowd Detection**: Solves the issue where YOLOv11 misses distant, dense crowds in large public spaces. Combines a global full-frame pass with an auxiliary high-resolution perspective patch pass (`iou=0.62`, `conf=0.06`), recovering small heads and distant pedestrians that downsampling typically blurs.
+2. **Occlusion-Resilient Zero-Drop Tracking**: Maintains continuous tracking across dense pedestrian crossings. If an individual is momentarily occluded for 1–3 frames by someone walking in front, `CrowdTracker` predicts their motion trajectory and carries them forward (`persisted: True`), eliminating crowd count flickering and dropouts.
+3. **Separated Individuals vs. Dense Crowd Packs**: Uses spatial proximity clustering to assign persistent IDs to separated pedestrians while grouping compressed groups ($\ge 3$ persons within adaptive radius) into **Crowd Packs** with normalized density indexing.
+4. **Collective Velocity Vectors & Predictive Flow Surges**: Projects crowd pack movement trajectories 3 seconds into the future, pre-empting bottleneck surges before people enter congested sectors.
+5. **Violent Commotion & Fight Detection**: Analyzes path tortuosity ($\tau$), kinetic acceleration variance, and directional turbulence to detect localized fights and stampede panic.
+6. **Real-Time Control Center**: Sub-100ms bi-directional WebSocket interface delivering dual-mode annotated video feeds and safety telemetry to Desktop, Web, and Mobile PWA.
 
 ---
 
@@ -226,12 +227,15 @@ Operators can customize division names per camera view or switch between **Compa
 ## 8. Verification & Benchmarking
 
 ```bash
-# 1. Verify batch risk engine analysis
+# 1. Automated end-to-end pre-flight verification (Weights, Ingestion, Inference, Clustering, Risk)
+python backend/verify_system.py
+
+# 2. Verify batch risk engine analysis
 python backend/test_risk_engine.py
 
-# 2. Verify motion clusters, collective velocity, and predictive surges
+# 3. Verify motion clusters, collective velocity, and predictive surges
 python backend/test/test_motion_clusters.py
 
-# 3. Test live WebSocket telemetry stream
+# 4. Test live WebSocket telemetry stream
 python backend/test_ws_req.py
 ```

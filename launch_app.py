@@ -31,11 +31,43 @@ def get_local_ip() -> str:
         return "127.0.0.1"
 
 def find_python():
-    # Prefer virtual environment if present
+    """Finds a functional Python executable that has PyTorch and OpenCV available."""
+    candidates = []
+    
+    # Check current executable
+    if sys.executable:
+        candidates.append(sys.executable)
+        
+    # Check virtual environment
     venv_python = ROOT_DIR / ".venv" / "Scripts" / "python.exe"
     if venv_python.exists():
-        return str(venv_python)
-    return sys.executable
+        candidates.append(str(venv_python))
+        
+    # Standard system candidates on Windows
+    candidates.extend([
+        "python",
+        "python3",
+        "py",
+        r"C:\Users\girib\AppData\Local\Microsoft\WindowsApps\python.exe",
+        r"C:\Users\girib\AppData\Local\Microsoft\WindowsApps\python3.13.exe",
+        r"C:\Users\girib\AppData\Local\Programs\Python\Python313\python.exe",
+        r"C:\Program Files\Python313\python.exe",
+        r"C:\Program Files\Python312\python.exe",
+        r"C:\Program Files\Python311\python.exe"
+    ])
+    
+    # Test each candidate for torch and cv2
+    for cand in candidates:
+        try:
+            cmd = cand.split() if " " in cand and not (cand.startswith("C:") or "\\" in cand) else [cand]
+            res = subprocess.run(cmd + ["-c", "import torch, cv2"], capture_output=True, timeout=2.5)
+            if res.returncode == 0:
+                return cand
+        except Exception:
+            continue
+            
+    # Fallback to sys.executable or python
+    return sys.executable or "python"
 
 def find_app_browser(url: str):
     """Finds Chrome or Edge to launch in standalone --app window mode."""
